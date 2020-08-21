@@ -44,6 +44,7 @@ def linear_quantize(input, scale, zero_point, inplace=False):
     zero_pint: shift for quantization
     """
 
+    print(input.shape, scale.shape, zero_point.shape)
     # reshape scale and zeropoint for convolutional weights and activation
     if len(input.shape) == 4:
         scale = scale.view(-1, 1, 1, 1)
@@ -103,6 +104,8 @@ def asymmetric_linear_quantization_params(num_bits,
             zero_point = float(round(zero_point))
     if signed:
         zero_point += 2**(num_bits - 1)
+    print(scale.shape)
+    print(zero_point.shape)
     return scale, zero_point
 
 

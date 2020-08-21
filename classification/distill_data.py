@@ -98,6 +98,7 @@ def getDistilData(teacher_model,
     assert len(hooks) == len(bn_stats)
 
     for i, gaussian_data in enumerate(dataloader):
+        '''
         if i == num_batch:
             break
         # initialize the criterion, optimizer, and scheduler
@@ -149,9 +150,19 @@ def getDistilData(teacher_model,
             total_loss.backward()
             optimizer.step()
             scheduler.step(total_loss.item())
+        '''
 
         refined_gaussian.append(gaussian_data.detach().clone())
 
     for handle in hook_handles:
         handle.remove()
+
+    '''
+    print('refined_gaussian : ', refined_gaussian[0].shape)
+    img = refined_gaussian[0][0].permute(1, 2, 0).tolist()
+    import matplotlib.pyplot as plt
+    plt.imsave('distildata.jpg', img)
+    print('img saved')
+    '''
+
     return refined_gaussian

@@ -74,7 +74,11 @@ class QuantAct(Module):
             self.x_min += -self.x_min + min(self.x_min, x_min)
             self.x_max += -self.x_max + max(self.x_max, x_max)
 
+            #print(self.identifier, x.flatten().shape)
+            #self.histogram = self.histogram + Counter((x.flatten() / 0.1).int().tolist())
+            #print(self.histogram)
         if not self.full_precision_flag:
+            print('ACT')
             quant_act = self.act_function(x, self.activation_bit, self.x_min,
                                           self.x_max)
             return quant_act
@@ -121,6 +125,7 @@ class Quant_Linear(Module):
         w_min = x_transform.min(dim=1).values
         w_max = x_transform.max(dim=1).values
         if not self.full_precision_flag:
+            print('Lin')
             w = self.weight_function(self.weight, self.weight_bit, w_min,
                                      w_max)
         else:
@@ -166,7 +171,9 @@ class Quant_Conv2d(Module):
         x_transform = w.data.contiguous().view(self.out_channels, -1)
         w_min = x_transform.min(dim=1).values
         w_max = x_transform.max(dim=1).values
+        #print(w_min.shape, w_max.shape)
         if not self.full_precision_flag:
+            print('CONV')
             w = self.weight_function(self.weight, self.weight_bit, w_min,
                                      w_max)
         else:
