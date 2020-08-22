@@ -50,7 +50,7 @@ if __name__ == '__main__':
 
 
     # Test Quant_Linear
-    linear = nn.Linear(4, 5, bias=False)
+    linear = nn.Linear(4, 5, bias=True)
     print('input weight @ simple_models.py')
     print(linear.weight) 
     print('input bias @ simple_models.py')
@@ -64,10 +64,10 @@ if __name__ == '__main__':
     input_quant_function = SymmetricQuantFunction.apply
     input_q, scale_input = input_quant_function(input, 8)
     output_q, scale_output = ql(input_q, scale_input)
-    print(output_q)
-    print(scale_output)
+    #print(output_q)
+    #print(scale_output)
 
     output_real = linear(input)
-    print(output_real)
+    print('Real\n', output_real)
     output = output_q.type(torch.float32) / scale_output.view([1, -1])
-    print(output)
+    print('Quantized\n', output)

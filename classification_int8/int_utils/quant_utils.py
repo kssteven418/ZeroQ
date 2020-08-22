@@ -26,7 +26,7 @@ def linear_quantize(input, scale, qtype=torch.int8):
         scale_reshape = scale.view(-1, 1)
     # bias
     elif len(input.shape) == 1:
-        scale_reshape = scale.clone()
+        scale_reshape = scale
     
     qtensor = (scale_reshape * input).type(qtype)
     return qtensor, scale
@@ -78,7 +78,7 @@ class SymmetricQuantFunction(Function):
             if x_min is None or x_max is None or \
                     (sum(x_min == x_max) == 1 and x_min.numel() == 1):
                 x_min, x_max = x.min(), x.max()
-            qrange = torch.max(-x_min, x_max)
+            qrange = torch.max(torch.abs(x_min), torch.abs(x_max))
             scale = symmetric_linear_quantization_params(k, qrange)
 
         qtensor, scale = linear_quantize(clamp_per_feature(x, -qrange, qrange), scale, qtype)
