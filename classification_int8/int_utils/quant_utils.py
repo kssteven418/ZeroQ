@@ -24,7 +24,10 @@ def linear_quantize(input, scale, qtype=torch.int8):
     # linear weights
     elif len(input.shape) == 2:
         scale_reshape = scale.view(-1, 1)
-
+    # bias
+    elif len(input.shape) == 1:
+        scale_reshape = scale.clone()
+    
     qtensor = (scale_reshape * input).type(qtype)
     return qtensor, scale
     
