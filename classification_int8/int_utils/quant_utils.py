@@ -4,6 +4,7 @@ import numpy as np
 from torch.autograd import Function, Variable
 import torch
 
+
 def clamp_per_feature(input, min, max):
     # covolution weights and activations
     if len(input.shape) == 4:  

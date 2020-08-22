@@ -51,7 +51,7 @@ class Quant_Linear(nn.Module):
             #return F.linear(x, weight=w, bias=self.bias)
 
         # dequantization-and-floating-operation path
-        # just for comparison and debugging purpose
+        # simply for comparison and debugging purpose
         if not self.integer_only:
             # this will produce dequantized float32 value
             w_q, scale_w = self.weight_bit_function(self.weight, self.weight_bit, 
