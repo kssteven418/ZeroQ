@@ -56,7 +56,8 @@ def symmetric_linear_quantization_params(num_bits, qrange):
 class SymmetricQuantFunction(Function):
 
     @staticmethod
-    def forward(self, x, k, x_min=None, x_max=None, scale=None, name=None):
+    def forward(self, x, k, x_min=None, x_max=None, scale=None, 
+            integer_only=True, name=None):
         """
         x: single-precision value to be quantized
         k: bit-setting for x
@@ -70,10 +71,10 @@ class SymmetricQuantFunction(Function):
         else:
             raise NotImplementedError
 
-        # This case is for quantizing bias w.r.t the given scaling factor
+        # This path is for quantizing bias w.r.t the given scaling factor
         if scale is not None:
             qrange = (2**(k-1) - 1) / scale
-        # This case is for quantizing weights or activations where scaling factor is not given
+        # This path is for quantizing weights or activations where scaling factor is not given
         else:
             if x_min is None or x_max is None or \
                     (sum(x_min == x_max) == 1 and x_min.numel() == 1):
@@ -82,8 +83,14 @@ class SymmetricQuantFunction(Function):
             scale = symmetric_linear_quantization_params(k, qrange)
 
         qtensor, scale = linear_quantize(clamp_per_feature(x, -qrange, qrange), scale, qtype)
-        #return (torch.autograd.Variable(qtensor.tensor, qtensor.scale))
-        return qtensor, scale
+        if integer_only:
+            assert qtensor.dtype == qtype
+            return qtensor, scale
+        else:
+            qtensor, _ = linear_quantize(clamp_per_feature(x, -qrange, qrange), scale, qtype)
+            dqtensor = linear_dequantize(qtensor, scale)
+            assert dqtensor.dtype == torch.float32
+            return dqtensor, scale
 
     @staticmethod
     def backward(ctx, grad_output):
