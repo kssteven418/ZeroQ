@@ -53,6 +53,10 @@ def arg_parse():
                         type=int,
                         default=128,
                         help='batch size of test data')
+    parser.add_argument('--no_distill',
+                        default=False,
+                        action='store_true',
+                        help='do not produce distilled dataset')
     args = parser.parse_args()
     return args
 
@@ -71,27 +75,38 @@ if __name__ == '__main__':
                               batch_size=args.test_batch_size,
                               path='./data/imagenet/',
                               for_inception=args.model.startswith('inception'))
+
     # Generate distilled data
-    dataloader = getDistilData(
-        model.cuda(),
-        args.dataset,
-        batch_size=args.batch_size,
-        for_inception=args.model.startswith('inception'))
+    if torch.cuda.is_available():
+        model = model.cuda()
+
+    if not args.no_distill:
+        dataloader = getDistilData(
+            model,
+            args.dataset,
+            batch_size=args.batch_size,
+            for_inception=args.model.startswith('inception'))
+
     print('****** Data loaded ******')
 
     # Quantize single-precision model to 8-bit model
     quantized_model = quantize_model(model)
     # Freeze BatchNorm statistics
     quantized_model.eval()
-    quantized_model = quantized_model.cuda()
+    if torch.cuda.is_available():
+        quantized_model = quantized_model.cuda()
 
     # Update activation range according to distilled data
-    update(quantized_model, dataloader)
+    if not args.no_distill:
+        update(quantized_model, dataloader)
+        freeze_model(quantized_model)
+
     print('****** Zero Shot Quantization Finished ******')
 
     # Freeze activation range during test
-    freeze_model(quantized_model)
-    quantized_model = nn.DataParallel(quantized_model).cuda()
+    quantized_model = nn.DataParallel(quantized_model)
+    if torch.cuda.is_available():
+        quantized_model = quantized_model.cuda()
 
     # Test the final quantized model
     test(quantized_model, test_loader)

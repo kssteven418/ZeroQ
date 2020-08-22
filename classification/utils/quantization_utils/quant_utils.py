@@ -44,7 +44,6 @@ def linear_quantize(input, scale, zero_point, inplace=False):
     zero_pint: shift for quantization
     """
 
-    print(input.shape, scale.shape, zero_point.shape)
     # reshape scale and zeropoint for convolutional weights and activation
     if len(input.shape) == 4:
         scale = scale.view(-1, 1, 1, 1)
@@ -104,8 +103,6 @@ def asymmetric_linear_quantization_params(num_bits,
             zero_point = float(round(zero_point))
     if signed:
         zero_point += 2**(num_bits - 1)
-    print(scale.shape)
-    print(zero_point.shape)
     return scale, zero_point
 
 
@@ -115,7 +112,7 @@ class AsymmetricQuantFunction(Function):
     Currently only support inference, but not support back-propagation.
     """
     @staticmethod
-    def forward(ctx, x, k, x_min=None, x_max=None):
+    def forward(ctx, x, k, x_min=None, x_max=None, name=None):
         """
         x: single-precision value to be quantized
         k: bit-setting for x
@@ -128,6 +125,12 @@ class AsymmetricQuantFunction(Function):
             x_min, x_max = x.min(), x.max()
         scale, zero_point = asymmetric_linear_quantization_params(
             k, x_min, x_max)
+        print(name)
+        print('scale shape:', scale.shape)
+        print('zero_point shape:', zero_point.shape)
+        print(zero_point)
+        print('x:', x.shape)
+        print()
         new_quant_x = linear_quantize(x, scale, zero_point, inplace=False)
         n = 2**(k - 1)
         new_quant_x = torch.clamp(new_quant_x, -n, n - 1)

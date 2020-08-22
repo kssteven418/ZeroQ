@@ -7,5 +7,6 @@ do
 		--dataset=imagenet 		\
 		--model=$MODEL 			\
 		--batch_size=64 		\
-		--test_batch_size=512
+		--test_batch_size=512 \
+    --no_distill
 done

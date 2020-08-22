@@ -33,7 +33,8 @@ def test(model, test_loader):
     model.eval()
     with torch.no_grad():
         for batch_idx, (inputs, targets) in enumerate(test_loader):
-            inputs, targets = inputs.cuda(), targets.cuda()
+            if torch.cuda.is_available():
+                inputs, targets = inputs.cuda(), targets.cuda()
             outputs = model(inputs)
             _, predicted = outputs.max(1)
             total += targets.size(0)
