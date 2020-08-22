@@ -128,7 +128,7 @@ class AsymmetricQuantFunction(Function):
         print(name)
         print('scale shape:', scale.shape)
         print('zero_point shape:', zero_point.shape)
-        print(zero_point)
+        #print(zero_point)
         print('x:', x.shape)
         print()
         new_quant_x = linear_quantize(x, scale, zero_point, inplace=False)
