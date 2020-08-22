@@ -4,10 +4,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils import *
-from distill_data import *
+# from utils import *
+# from distill_data import *
 from int_utils import *
-
 
 QTensor = namedtuple('QTensor', ['tensor', 'scale'])
 
@@ -36,6 +35,7 @@ class SimpleFC(nn.Module):
 
 
 if __name__ == '__main__':
+    '''
     batch_size = 4
     input_size = 8
     model = SimpleMatmul(input_size)
@@ -45,3 +45,29 @@ if __name__ == '__main__':
 
     quantized_model = quantize_model(model) 
     print(quantized_model)
+    print(type(quantized_model))
+    '''
+
+
+    # Test Quant_Linear
+    linear = nn.Linear(4, 5, bias=False)
+    print('input weight @ simple_models.py')
+    print(linear.weight) 
+    print('input bias @ simple_models.py')
+    print(linear.bias)   
+    print()
+
+    ql = Quant_Linear(weight_bit=8, bias_bit=32)
+    ql.set_params(linear)
+
+    input = torch.randn([2, 4])
+    input_quant_function = SymmetricQuantFunction.apply
+    input_q, scale_input = input_quant_function(input, 8)
+    output_q, scale_output = ql(input_q, scale_input)
+    print(output_q)
+    print(scale_output)
+
+    output_real = linear(input)
+    print(output_real)
+    output = output_q.type(torch.float32) / scale_output.view([1, -1])
+    print(output)

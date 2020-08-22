@@ -4,23 +4,28 @@ import numpy as np
 from torch.autograd import Function, Variable
 import torch
 
-def clamp(input, min, max, inplace=False):
-    if inplace:
-        input.clamp_(min, max)
-        return input
-    return torch.clamp(input, min, max)
+def clamp_per_feature(input, min, max):
+    # covolution weights and activations
+    if len(input.shape) == 4:  
+        min = min.view(-1, 1, 1, 1)
+        max = max.view(-1, 1, 1, 1)
+    # linear weights
+    elif len(input.shape) == 2:
+        min = min.view(-1, 1)
+        max = max.view(-1, 1)
+    return torch.max(torch.min(input, max), min)
 
 
 def linear_quantize(input, scale, qtype=torch.int8):
 
     # covolution weights and activations
     if len(input.shape) == 4:  
-        scale = scale.view(-1, 1, 1, 1)
+        scale_reshape = scale.view(-1, 1, 1, 1)
     # linear weights
     elif len(input.shape) == 2:
-        scale = scale.view(-1, 1)
-    
-    qtensor = (scale * input).type(qtype)
+        scale_reshape = scale.view(-1, 1)
+
+    qtensor = (scale_reshape * input).type(qtype)
     return qtensor, scale
     
 
@@ -45,7 +50,7 @@ def symmetric_linear_quantization_params(num_bits, qrange):
     return scale
 
 
-class SymmetricQuantizationFunction(Function):
+class SymmetricQuantFunction(Function):
 
     @staticmethod
     def forward(self, x, k, x_min=None, x_max=None, scale=None, name=None):
@@ -72,7 +77,8 @@ class SymmetricQuantizationFunction(Function):
                 x_min, x_max = x.min(), x.max()
             qrange = torch.max(-x_min, x_max)
             scale = symmetric_linear_quantization_params(k, qrange)
-            qtensor, scale = linear_quantize(torch.clamp(x, -qrange, qrange), scale, qtype)
+
+        qtensor, scale = linear_quantize(clamp_per_feature(x, -qrange, qrange), scale, qtype)
         #return (torch.autograd.Variable(qtensor.tensor, qtensor.scale))
         return qtensor, scale
 
@@ -82,6 +88,17 @@ class SymmetricQuantizationFunction(Function):
         
 
 if __name__ == '__main__':
+
+    # clamp per feature test
+    w = torch.Tensor([[-2, -1, 0, 1, 2], [-2, -1, 0, 1, 2], [-2, -1, 0, 1, 2]])
+    print(w)
+    min = torch.Tensor([-2, -1, 0])
+    max = torch.Tensor([0, 1, 2])
+    w_clamp = clamp_per_feature(w, min, max)
+    print(w_clamp)
+
+
+    # Test linear quantization and dequantization
     qfunction = SymmetricQuantizationFunction.apply
     x = torch.randn([4, 5])
     qtensor, scale = qfunction(x, 8)
