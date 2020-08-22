@@ -84,10 +84,12 @@ class Quant_Linear(nn.Module):
                     None, None, scale_out, self.integer_only, 'Linear_b')
             assert b_q.dtype == torch.int32
         
+        print('Quantized values in Quant_Linear class')
         print('Xq:', x_q, x_q.shape)
         print('Wq:', w_q, w_q.shape)
         if b_q is not None:
             print('bq:', b_q, b_q.shape)
+        print()
         out_q = F.linear(x_q, weight=w_q, bias=b_q)
 
-        return out_q, scale_out
+        return out_q, scale_out.view(1, -1)

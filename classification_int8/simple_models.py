@@ -35,39 +35,42 @@ class SimpleFC(nn.Module):
 
 
 if __name__ == '__main__':
-    '''
-    batch_size = 4
-    input_size = 8
-    model = SimpleMatmul(input_size)
-
-    input = torch.randn([batch_size, input_size])
-    print(model(input))
-
-    quantized_model = quantize_model(model) 
-    print(quantized_model)
-    print(type(quantized_model))
-    '''
-
-
     # Test Quant_Linear
+    print('=========== Quant_Linear Test ==============\n')
     linear = nn.Linear(4, 5, bias=True)
-    print('input weight @ simple_models.py')
-    print(linear.weight) 
-    print('input bias @ simple_models.py')
-    print(linear.bias)   
-    print()
-
-    ql = Quant_Linear(weight_bit=8, bias_bit=32)
-    ql.set_params(linear)
-
     input = torch.randn([2, 4])
     input_quant_function = SymmetricQuantFunction.apply
+
+    print('weight @ simple_models.py')
+    print(linear.weight) 
+    print()
+    print('bias @ simple_models.py')
+    print(linear.bias)   
+    print()
+    print('input @ simple_models.py')
+    print(input)
+    print()
+
+    # Compute real value
+    output_real = linear(input)
+    print('Output Real\n', output_real)
+    print()
+
+    # Compute integer-only 
+    ql = Quant_Linear(weight_bit=8, bias_bit=32)
+    ql.set_params(linear)
     input_q, scale_input = input_quant_function(input, 8)
     output_q, scale_output = ql(input_q, scale_input)
-    #print(output_q)
-    #print(scale_output)
+    output = output_q.type(torch.float32) / scale_output
+    print('Output Quantized\n', output)
+    print()
 
-    output_real = linear(input)
-    print('Real\n', output_real)
-    output = output_q.type(torch.float32) / scale_output.view([1, -1])
-    print('Quantized\n', output)
+    # Compute dequantize-and-floating-operation
+    ql_dequant = Quant_Linear(weight_bit=8, bias_bit=32, integer_only=False)
+    ql_dequant.set_params(linear)
+    input_dq, scale_input = input_quant_function(input, 8, None, None, None, False)
+    output_dq = ql_dequant(input_dq, scale_input)
+    print('Output Dequantized\n', output_dq)
+    print() 
+    print('============================================\n')
+
