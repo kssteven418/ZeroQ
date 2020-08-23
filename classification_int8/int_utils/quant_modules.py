@@ -100,14 +100,6 @@ class Quant_Conv2d(Quant_Module):
 
         assert b_q is None or b_q.dtype == torch.int32
 
-        '''
-        print('Quantized values in Quant_Conv2d class')
-        print('Xq:', x_q, x_q.shape)
-        print('Wq:', w_q, w_q.shape)
-        if b_q is not None:
-            print('bq:', b_q, b_q.shape)
-        print()
-        '''
         out_q = F.conv2d(x_q, w_q, b_q, self.stride, self.padding,
                          self.dilation, self.groups)
 
@@ -139,8 +131,7 @@ class Quant_Linear(Quant_Module):
         w_max = w_transform.max(dim=1).values
 
         if self.full_precision_flag:
-            raise NotImplementedError
-            #return F.linear(x, weight=w, bias=self.bias)
+            return F.linear(x_q, weight=w, bias=self.bias)
 
         # this will produce dequantized float32 value
         w_q, scale_w = self.weight_bit_function(self.weight, self.weight_bit, 
@@ -166,14 +157,6 @@ class Quant_Linear(Quant_Module):
 
         assert b_q is None or b_q.dtype == torch.int32
         
-        '''
-        print('Quantized values in Quant_Linear class')
-        print('Xq:', x_q, x_q.shape)
-        print('Wq:', w_q, w_q.shape)
-        if b_q is not None:
-            print('bq:', b_q, b_q.shape)
-        print()
-        '''
         out_q = F.linear(x_q, weight=w_q, bias=b_q)
 
         # scale factor for matmul output is row-wise

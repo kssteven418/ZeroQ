@@ -36,7 +36,7 @@ class SimpleFC(nn.Module):
 
 
 test_linear, test_conv = False, False
-test_conv_bn_layer = True
+test_bn_folding = True
 input_quant_function = SymmetricQuantFunction.apply
 
 with torch.no_grad():
@@ -141,7 +141,7 @@ with torch.no_grad():
         print()
         print('============================================\n')
 
-    if test_conv_bn_layer:
+    if test_bn_folding:
         model_name = 'resnet18'
         model = ptcv_get_model(model_name, pretrained=True)
         img = torch.randn([2, 3, 200, 200])
