@@ -9,7 +9,7 @@ from torch.nn import Parameter
 from .quant_utils import *
 
 class Quant_Module(nn.Module):
-    def __init__(self, weight_bit=8, bias_bit=32, 
+    def __init__(self, weight_bit=8, bias_bit=32, downcast=True,
                  full_precision_flag=False, integer_only=True):
         """
         weight: bit-setting for weight
@@ -22,6 +22,7 @@ class Quant_Module(nn.Module):
         self.weight_bit = weight_bit
         self.bias_bit = bias_bit
         self.weight_bit_function = SymmetricQuantFunction.apply
+        self.downcast_function = DownCastFunction.apply if downcast else None
 
     def __repr__(self):
         s = super(Quant_Module, self).__repr__()
@@ -31,9 +32,9 @@ class Quant_Module(nn.Module):
 
 
 class Quant_Conv2d(Quant_Module):
-    def __init__(self, weight_bit=8, bias_bit=32, 
+    def __init__(self, weight_bit=8, bias_bit=32, downcast=True,
                  full_precision_flag=False, integer_only=True):
-        super(Quant_Conv2d, self).__init__(weight_bit, bias_bit,
+        super(Quant_Conv2d, self).__init__(weight_bit, bias_bit, downcast,
                                            full_precision_flag, integer_only)
 
     def set_params(self, conv):
@@ -103,14 +104,17 @@ class Quant_Conv2d(Quant_Module):
         out_q = F.conv2d(x_q, w_q, b_q, self.stride, self.padding,
                          self.dilation, self.groups)
 
-        # scale factor for matmul output is row-wise
-        return out_q, scale_out.view(1, -1, 1, 1)
+        # scale factor for conv2d output is out_channel-wise
+        scale_out = scale_out.view(1, -1, 1, 1)
+        if self.downcast_function:
+            return self.downcast_function(out_q, scale_out)
+        return out_q, scale_out
 
 
 class Quant_Linear(Quant_Module):
-    def __init__(self, weight_bit=8, bias_bit=32, 
+    def __init__(self, weight_bit=8, bias_bit=32, downcast=True,
                  full_precision_flag=False, integer_only=True):
-        super(Quant_Linear, self).__init__(weight_bit, bias_bit,
+        super(Quant_Linear, self).__init__(weight_bit, bias_bit, downcast,
                                            full_precision_flag, integer_only)
 
     def set_params(self, linear):
@@ -160,4 +164,7 @@ class Quant_Linear(Quant_Module):
         out_q = F.linear(x_q, weight=w_q, bias=b_q)
 
         # scale factor for matmul output is row-wise
-        return out_q, scale_out.view(1, -1)
+        scale_out = scale_out.view(1, -1)
+        if self.downcast_function:
+            return self.downcast_function(out_q, scale_out)
+        return out_q, scale_out

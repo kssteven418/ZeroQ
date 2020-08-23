@@ -50,20 +50,60 @@ def linear_dequantize(qinput, scale):
     return qinput.type(dtype) / scale
     
 
-def symmetric_linear_quantization_params(num_bits, qrange):
+def linear_quantization_params(num_bits, qrange, is_symmetric):
     """
     Compute the scaling factor with the given quantization range [-qrange, qrange].
     """
-    n = 2**num_bits - 1
-    scale = n / torch.clamp((2 * qrange), min=1e-8)
+    n = 2**num_bits - 1 # range length in the quantization domain
+    # range length in the real domain 
+    # range is [-qrange, qrange] if symmetric, [0, qrange] if asymmetric
+    qrange_len = 2 * qrange if is_symmetric else qrange
+    scale = n / torch.clamp((qrange_len), min=1e-6)
     return scale
 
+class DownCastFunction(Function):
+
+    @staticmethod
+    def forward(self, x, scale, output_dtype=torch.int8):
+        """
+        x: quantized integer input
+        scale: scale factor of the input
+        output_dtype: desired dtype of the output
+        """
+        #print('before downcast:', x, scale)
+        if x.dtype == torch.int32:
+            input_bit = 32
+        else:
+            raise NotImplementedError('int32 is only supported for downcast input.')
+        if output_dtype == torch.int8:
+            output_bit = 8
+        else:
+            raise NotImplementedError('int8 is only supported for downcast output.')
+
+        '''
+        scale_cast = 2**(input_bit - output_bit)
+        assert scale_cast >= 1
+        scale_out = scale * scale_cast
+        output = (x // scale_cast).type(output_dtype)
+        print('after downcast:', x // scale_cast, scale_out)
+        return  output, scale_out
+        '''
+        x_min, x_max = x.min().type(torch.float32), x.max().type(torch.float32)
+        qrange = torch.max(torch.abs(x_min), torch.abs(x_max))
+        scale_cast = linear_quantization_params(output_bit, qrange, is_symmetric=True)
+        output_cast, scale_cast = linear_quantize(x, scale_cast, output_dtype)
+        #print('after downcast:', output_cast, scale_cast * scale)
+        return output_cast, scale_cast * scale
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        raise NotImplementedError
 
 class SymmetricQuantFunction(Function):
 
     @staticmethod
     def forward(self, x, k, x_min=None, x_max=None, scale=None, 
-            integer_only=True, name=None):
+                integer_only=True, name=None):
         """
         x: single-precision value to be quantized
         k: bit-setting for x
@@ -75,7 +115,7 @@ class SymmetricQuantFunction(Function):
         elif k == 32:
             qtype = torch.int32
         else:
-            raise NotImplementedError
+            raise NotImplementedError("only 8-bit and 32-bit quantizations are supported")
 
         # This path is for quantizing bias w.r.t the given scaling factor
         if scale is not None:
@@ -86,7 +126,7 @@ class SymmetricQuantFunction(Function):
                     (sum(x_min == x_max) == 1 and x_min.numel() == 1):
                 x_min, x_max = x.min(), x.max()
             qrange = torch.max(torch.abs(x_min), torch.abs(x_max))
-            scale = symmetric_linear_quantization_params(k, qrange)
+            scale = linear_quantization_params(k, qrange, is_symmetric=True)
 
         qtensor, scale = linear_quantize(clamp_per_feature(x, -qrange, qrange), scale, qtype)
         if integer_only:

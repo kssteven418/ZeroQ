@@ -39,6 +39,7 @@ test_linear, test_conv = False, False
 test_bn_folding = True
 input_quant_function = SymmetricQuantFunction.apply
 
+
 with torch.no_grad():
     if test_linear:
 
@@ -46,18 +47,6 @@ with torch.no_grad():
         print('=========== Quant_Linear Test ==============\n')
         linear = nn.Linear(4, 5, bias=True)
         input = torch.randn([2, 4])
-
-        '''
-        print('weight @ simple_models.py')
-        print(linear.weight) 
-        print()
-        print('bias @ simple_models.py')
-        print(linear.bias)   
-        print()
-        print('input @ simple_models.py')
-        print(input)
-        print()
-        '''
 
         # Compute real value
         output_real = linear(input)
@@ -95,21 +84,6 @@ with torch.no_grad():
         conv = nn.Conv2d(2, 3, 2, stride=2)
         input = torch.randn([1, 2, 4, 4]) # [batch, inchannel, H, W]
 
-        '''
-        print('weight @ simple_models.py')
-        print(conv.weight) 
-        print(conv.weight.shape)
-        print()
-        print('bias @ simple_models.py')
-        print(conv.bias)   
-        print(conv.bias.shape)
-        print()
-        print('input @ simple_models.py')
-        print(input)
-        print(input.shape)
-        print()
-        '''
-
         # Compute integer-only 
         ql = Quant_Conv2d(weight_bit=8, bias_bit=32)
         ql.set_params(conv)
@@ -144,15 +118,21 @@ with torch.no_grad():
     if test_bn_folding:
         model_name = 'resnet18'
         model = ptcv_get_model(model_name, pretrained=True)
-        img = torch.randn([2, 3, 200, 200])
 
         layer = model.features.init_block.conv
+        img = torch.randn([2, 3, 200, 200])
+        layer = model.features.stage4.unit1.body.conv1
+        img = torch.randn([2, 256, 200, 200])
+
         conv = layer.conv
         bn = layer.bn
         bn.eval()
 
         real_conv = conv(img)
         real_bn = bn(real_conv)
+        print(real_conv)
+        print()
+        print()
 
         ### Test real vs. real-bn-folded
         #ql_fold = Quant_Conv2d(weight_bit=8, bias_bit=32, integer_only=False, \
