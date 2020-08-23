@@ -52,6 +52,20 @@ class Quant_Conv2d(Quant_Module):
         except AttributeError:
             self.bias = None
 
+    def batchnorm_folding(self, mean, var, weight, bias):
+        mean, var, weight, bias = mean.data, var.data, weight.data, bias.data
+        if self.bias is None:
+            self.bias = Parameter(torch.zeros([self.out_channels]))
+        bias_data = self.bias.data.clone()
+        weight_data = self.weight.data.clone()
+
+        bias_data = bias_data + bias - \
+                    mean * weight / torch.sqrt(1e-8 + var)
+        weight_data = weight_data * weight.view(-1, 1, 1, 1) / \
+                      torch.sqrt(1e-8 + var.view(-1, 1, 1, 1))
+        self.bias.copy_(bias_data)
+        self.weight.copy_(weight_data)
+
     def forward(self, x_q, scale_x):
         w = self.weight
         # o, i, h, w -> o, iwh
@@ -60,7 +74,8 @@ class Quant_Conv2d(Quant_Module):
         w_max = w_transform.max(dim=1).values
 
         if self.full_precision_flag:
-            raise NotImplementedError
+            return F.conv2d(x_q, w, self.bias, self.stride, self.padding,
+                            self.dilation, self.groups)
 
         w_q, scale_w = self.weight_bit_function(self.weight, self.weight_bit, 
             w_min, w_max, None, self.integer_only, 'Conv2d_w')
@@ -85,12 +100,14 @@ class Quant_Conv2d(Quant_Module):
 
         assert b_q is None or b_q.dtype == torch.int32
 
+        '''
         print('Quantized values in Quant_Conv2d class')
         print('Xq:', x_q, x_q.shape)
         print('Wq:', w_q, w_q.shape)
         if b_q is not None:
             print('bq:', b_q, b_q.shape)
         print()
+        '''
         out_q = F.conv2d(x_q, w_q, b_q, self.stride, self.padding,
                          self.dilation, self.groups)
 
@@ -149,12 +166,14 @@ class Quant_Linear(Quant_Module):
 
         assert b_q is None or b_q.dtype == torch.int32
         
+        '''
         print('Quantized values in Quant_Linear class')
         print('Xq:', x_q, x_q.shape)
         print('Wq:', w_q, w_q.shape)
         if b_q is not None:
             print('bq:', b_q, b_q.shape)
         print()
+        '''
         out_q = F.linear(x_q, weight=w_q, bias=b_q)
 
         # scale factor for matmul output is row-wise
