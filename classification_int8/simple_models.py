@@ -38,6 +38,7 @@ if __name__ == '__main__':
     
     with torch.no_grad():
         input_quant_function = SymmetricQuantFunction.apply
+
         '''
         # Test Quant_Linear
         print('=========== Quant_Linear Test ==============\n')
@@ -103,6 +104,15 @@ if __name__ == '__main__':
         print(output_real.shape)
         print()
 
+        # Compute integer-only 
+        ql = Quant_Conv2d(weight_bit=8, bias_bit=32)
+        print(ql)
+        ql.set_params(conv)
+        input_q, scale_input = input_quant_function(input, 8)
+        output_q, scale_output = ql(input_q, scale_input)
+        output = output_q.type(torch.float32) / scale_output
+        print('Output Quantized\n', output)
+        print()
         # Compute dequantize-and-floating-operation
         ql_dequant = Quant_Conv2d(weight_bit=8, bias_bit=32, integer_only=False)
         ql_dequant.set_params(conv)

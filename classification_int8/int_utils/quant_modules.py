@@ -62,25 +62,43 @@ class Quant_Conv2d(Quant_Module):
         if self.full_precision_flag:
             raise NotImplementedError
 
+        w_q, scale_w = self.weight_bit_function(self.weight, self.weight_bit, 
+            w_min, w_max, None, self.integer_only, 'Conv2d_w')
+        scale_out = scale_w * scale_x
+        if self.bias is None:
+            b_q = None
+        else:
+            b_q, _ = self.weight_bit_function(self.bias, self.bias_bit, 
+                    None, None, scale_out, self.integer_only, 'Conv2d_b')
         # dequantization-and-floating-operation path for comparison and debugging purpose
         if not self.integer_only:
-            # this will produce dequantized float32 value
-            w_q, scale_w = self.weight_bit_function(self.weight, self.weight_bit, 
-                w_min, w_max, None, self.integer_only, 'Conv2d_w')
-            print('conv2d scale_w:', scale_w)
-            print('conv2d scale_x:', scale_x)
-            scale_out = scale_w * scale_x
+            print('conv2d scale_w:', scale_w.shape)
+            print('conv2d scale_x:', scale_x.shape)
+            print('conv2d scale_out:', scale_out.shape)
             assert w_q.dtype == torch.float32
             assert x_q.dtype == torch.float32
-
-            if self.bias is None:
-                b_q = None
-            else:
-                b_q, _ = self.weight_bit_function(self.bias, self.bias_bit, 
-                        None, None, scale_out, self.integer_only, 'Conv2d_b')
-                assert b_q.dtype == torch.float32
+            assert b_q is None or b_q.dtype == torch.float32
             return F.conv2d(x_q, w_q, b_q, self.stride, self.padding,
                             self.dilation, self.groups)
+
+        # integer-only-operation-path
+        # cast x_q and w_q from int8 to int32
+        x_q = x_q.type(torch.int32)
+        w_q = w_q.type(torch.int32)
+
+        assert b_q is None or b_q.dtype == torch.int32
+
+        print('Quantized values in Quant_Conv2d class')
+        print('Xq:', x_q, x_q.shape)
+        print('Wq:', w_q, w_q.shape)
+        if b_q is not None:
+            print('bq:', b_q, b_q.shape)
+        print()
+        out_q = F.conv2d(x_q, w_q, b_q, self.stride, self.padding,
+                         self.dilation, self.groups)
+
+        # scale factor for matmul output is row-wise
+        return out_q, scale_out.view(1, -1, 1, 1)
 
 
 class Quant_Linear(Quant_Module):
@@ -110,38 +128,29 @@ class Quant_Linear(Quant_Module):
             raise NotImplementedError
             #return F.linear(x, weight=w, bias=self.bias)
 
-        # dequantization-and-floating-operation path for comparison and debugging purpose
-        if not self.integer_only:
-            # this will produce dequantized float32 value
-            w_q, scale_w = self.weight_bit_function(self.weight, self.weight_bit, 
-                w_min, w_max, None, self.integer_only, 'Linear_w')
-            scale_out = scale_w * scale_x
-            assert w_q.dtype == torch.float32
-            assert x_q.dtype == torch.float32
-
-            if self.bias is None:
-                b_q = None
-            else:
-                b_q, _ = self.weight_bit_function(self.bias, self.bias_bit, 
-                        None, None, scale_out, self.integer_only, 'Linear_b')
-                assert b_q.dtype == torch.float32
-            return F.linear(x_q, weight=w_q, bias=b_q)
-
-        # integer-only-operation-path
+        # this will produce dequantized float32 value
         w_q, scale_w = self.weight_bit_function(self.weight, self.weight_bit, 
-                w_min, w_max, None, self.integer_only, 'Linear_w')
+            w_min, w_max, None, self.integer_only, 'Linear_w')
         scale_out = scale_w * scale_x
-
-        # cast x_q and w_q from int8 to int32
-        x_q = x_q.type(torch.int32)
-        w_q = w_q.type(torch.int32)
-
         if self.bias is None:
             b_q = None
         else:
             b_q, _ = self.weight_bit_function(self.bias, self.bias_bit, 
                     None, None, scale_out, self.integer_only, 'Linear_b')
-            assert b_q.dtype == torch.int32
+
+        # dequantization-and-floating-operation path for comparison and debugging purpose
+        if not self.integer_only:
+            assert w_q.dtype == torch.float32
+            assert x_q.dtype == torch.float32
+            assert b_q is None or b_q.dtype == torch.float32
+            return F.linear(x_q, weight=w_q, bias=b_q)
+
+        # integer-only-operation-path
+        # cast x_q and w_q from int8 to int32
+        x_q = x_q.type(torch.int32)
+        w_q = w_q.type(torch.int32)
+
+        assert b_q is None or b_q.dtype == torch.int32
         
         print('Quantized values in Quant_Linear class')
         print('Xq:', x_q, x_q.shape)
