@@ -4,31 +4,30 @@ import numpy as np
 from torch.autograd import Function, Variable
 import torch
 
+def adjust_shape(target, source):
+    """
+    view the source Tensor to make it has the same dimension as the target Tensor.
+    """
+    # covolution weights and activations
+    if len(source.shape) == 4:  
+        return target.view(-1, 1, 1, 1)
+    # linear weights
+    elif len(source.shape) == 2:
+        return target.view(-1, 1)
+    # bias
+    elif len(source.shape) == 1 or len(source.shape) == 0:
+        return target
+    raise NotImplementedError
+
 
 def clamp_per_feature(input, min, max):
-    # covolution weights and activations
-    if len(input.shape) == 4:  
-        min = min.view(-1, 1, 1, 1)
-        max = max.view(-1, 1, 1, 1)
-    # linear weights
-    elif len(input.shape) == 2:
-        min = min.view(-1, 1)
-        max = max.view(-1, 1)
+    min = adjust_shape(min, input)
+    max = adjust_shape(max, input)
     return torch.max(torch.min(input, max), min)
 
 
 def linear_quantize(input, scale, qtype=torch.int8):
-
-    # covolution weights and activations
-    if len(input.shape) == 4:  
-        scale_reshape = scale.view(-1, 1, 1, 1)
-    # linear weights
-    elif len(input.shape) == 2:
-        scale_reshape = scale.view(-1, 1)
-    # bias
-    elif len(input.shape) == 1:
-        scale_reshape = scale
-    
+    scale_reshape = adjust_shape(scale, input) 
     qtensor = (scale_reshape * input).type(qtype)
     return qtensor, scale
     
