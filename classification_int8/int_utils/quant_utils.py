@@ -27,8 +27,14 @@ def clamp_per_feature(input, min, max):
 
 
 def linear_quantize(input, scale, qtype=torch.int8):
+    if qtype == torch.int8:
+        k = 8
+    if qtype == torch.int32:
+        k = 32
+    n = 2 ** (k-1)
+    min, max = -n, n-1
     scale_reshape = adjust_shape(scale, input) 
-    qtensor = (scale_reshape * input).type(qtype)
+    qtensor = torch.round(scale_reshape * input).clamp(min, max).type(qtype)
     return qtensor, scale
     
 

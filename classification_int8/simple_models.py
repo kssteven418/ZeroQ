@@ -98,12 +98,6 @@ if __name__ == '__main__':
         print(input.shape)
         print()
 
-        # Compute real value
-        output_real = conv(input)
-        print('Output Real\n', output_real)
-        print(output_real.shape)
-        print()
-
         # Compute integer-only 
         ql = Quant_Conv2d(weight_bit=8, bias_bit=32)
         print(ql)
@@ -120,4 +114,13 @@ if __name__ == '__main__':
         output_dq = ql_dequant(input_dq, scale_input)
         print('Output Dequantized\n', output_dq)
         print() 
+
+        # Compute real value
+        output_real = conv(input)
+        print('Output Real\n', output_real)
+        print(output_real.shape)
+        print()
+
+        print('Diff')
+        print(output_real - output)
         print('============================================\n')
