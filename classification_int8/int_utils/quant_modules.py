@@ -72,9 +72,6 @@ class Quant_Conv2d(Quant_Module):
                     None, None, scale_out, self.integer_only, 'Conv2d_b')
         # dequantization-and-floating-operation path for comparison and debugging purpose
         if not self.integer_only:
-            print('conv2d scale_w:', scale_w.shape)
-            print('conv2d scale_x:', scale_x.shape)
-            print('conv2d scale_out:', scale_out.shape)
             assert w_q.dtype == torch.float32
             assert x_q.dtype == torch.float32
             assert b_q is None or b_q.dtype == torch.float32
