@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from torch.nn import Parameter
 from .quant_utils import *
 
-class Quant_Linear(nn.Module):
+class Quant_Module(nn.Module):
     def __init__(self, weight_bit=8, bias_bit=32, 
                  full_precision_flag=False, integer_only=True):
         """
@@ -16,7 +16,7 @@ class Quant_Linear(nn.Module):
         full_precision_flag: full precision or not
         running_stat: determines whether the activation range is updated or frozen
         """
-        super(Quant_Linear, self).__init__()
+        super(Quant_Module, self).__init__()
         self.full_precision_flag = full_precision_flag
         self.integer_only = integer_only
         self.weight_bit = weight_bit
@@ -24,10 +24,70 @@ class Quant_Linear(nn.Module):
         self.weight_bit_function = SymmetricQuantFunction.apply
 
     def __repr__(self):
-        s = super(Quant_Linear, self).__repr__()
+        s = super(Quant_Module, self).__repr__()
         s = "(" + s + " weight_bit={}, bias_bit={}, full_precision_flag={})".format(
                  self.weight_bit, self.bias_bit, self.full_precision_flag)
         return s
+
+
+class Quant_Conv2d(Quant_Module):
+    def __init__(self, weight_bit=8, bias_bit=32, 
+                 full_precision_flag=False, integer_only=True):
+        super(Quant_Conv2d, self).__init__(weight_bit, bias_bit,
+                                           full_precision_flag, integer_only)
+
+    def set_params(self, conv):
+        self.in_channels = conv.in_channels
+        self.out_channels = conv.out_channels
+        self.kernel_size = conv.kernel_size
+        self.stride = conv.stride
+        self.padding = conv.padding
+        self.dilation = conv.dilation
+        self.groups = conv.groups
+
+        # For now, just store parameters as float32
+        self.weight = Parameter(conv.weight.data.clone())
+        try:
+            self.bias = Parameter(conv.bias.data.clone())
+        except AttributeError:
+            self.bias = None
+
+    def forward(self, x_q, scale_x):
+        w = self.weight
+        # o, i, h, w -> o, iwh
+        w_transform = w.data.contiguous().view(self.out_channels, -1)
+        w_min = w_transform.min(dim=1).values
+        w_max = w_transform.max(dim=1).values
+
+        if self.full_precision_flag:
+            raise NotImplementedError
+
+        # dequantization-and-floating-operation path for comparison and debugging purpose
+        if not self.integer_only:
+            # this will produce dequantized float32 value
+            w_q, scale_w = self.weight_bit_function(self.weight, self.weight_bit, 
+                w_min, w_max, None, self.integer_only, 'Conv2d_w')
+            print('conv2d scale_w:', scale_w)
+            print('conv2d scale_x:', scale_x)
+            scale_out = scale_w * scale_x
+            assert w_q.dtype == torch.float32
+            assert x_q.dtype == torch.float32
+
+            if self.bias is None:
+                b_q = None
+            else:
+                b_q, _ = self.weight_bit_function(self.bias, self.bias_bit, 
+                        None, None, scale_out, self.integer_only, 'Conv2d_b')
+                assert b_q.dtype == torch.float32
+            return F.conv2d(x_q, w_q, b_q, self.stride, self.padding,
+                            self.dilation, self.groups)
+
+
+class Quant_Linear(Quant_Module):
+    def __init__(self, weight_bit=8, bias_bit=32, 
+                 full_precision_flag=False, integer_only=True):
+        super(Quant_Linear, self).__init__(weight_bit, bias_bit,
+                                           full_precision_flag, integer_only)
 
     def set_params(self, linear):
         self.in_features = linear.in_features
@@ -50,8 +110,7 @@ class Quant_Linear(nn.Module):
             raise NotImplementedError
             #return F.linear(x, weight=w, bias=self.bias)
 
-        # dequantization-and-floating-operation path
-        # simply for comparison and debugging purpose
+        # dequantization-and-floating-operation path for comparison and debugging purpose
         if not self.integer_only:
             # this will produce dequantized float32 value
             w_q, scale_w = self.weight_bit_function(self.weight, self.weight_bit, 
@@ -92,4 +151,5 @@ class Quant_Linear(nn.Module):
         print()
         out_q = F.linear(x_q, weight=w_q, bias=b_q)
 
+        # scale factor for matmul output is row-wise
         return out_q, scale_out.view(1, -1)
