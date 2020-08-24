@@ -31,6 +31,72 @@ class Quant_Module(nn.Module):
         return s
 
 
+class Quant_Relu(nn.Module):
+    """
+    Class to quantize given linear layer weights
+    """
+    def __init__(self,
+                 activation_bit,
+                 full_precision_flag=False,
+                 integer_only=True,
+                 running_stat=True):
+        """
+        activation_bit: bit-setting for activation
+        full_precision_flag: full precision or not
+        running_stat: determines whether the activation range is updated or froze
+        """
+        super(Quant_Relu, self).__init__()
+        self.activation_bit = activation_bit
+        if activation_bit == 8:
+            self.qtype = torch.uint8
+        else:
+            raise NotImplementedError
+        self.full_precision_flag = full_precision_flag
+        self.integer_only = integer_only
+        self.running_stat = running_stat
+        self.register_buffer('x_max', torch.zeros(1))
+        #self.act_function = AsymmetricQuantFunction.apply
+        self.scale_out = None
+
+    def __repr__(self):
+        return "{0}(activation_bit={1}, full_precision_flag={2}, running_stat={3}, Act_min: {4:.2f}, Act_max: {5:.2f})".format(
+            self.__class__.__name__, self.activation_bit,
+            self.full_precision_flag, self.running_stat, self.x_min.item(),
+            self.x_max.item())
+
+    def fix(self):
+        """
+        fix the activation range by setting running stat
+        """
+        self.running_stat = False
+        n = 2**self.activation_bit - 1
+        self.scale_out = n / self.x_max
+
+    def integer_only_quantization(self, x, scale):
+        # apply relu
+        x = F.relu(x)
+        # requantize
+        x = requantization_function(x, scale, self.scale_out, shift=8)
+        # down-cast
+        return x.type(self.qtype)
+
+    def forward(self, x, scale):
+        if self.running_stat:
+            x_max = x.data.max()
+            # in-place operation used on multi-gpus
+            self.x_max += -self.x_max + max(self.x_max, x_max)
+
+        if self.full_precision_flag:
+            return F.relu(x)
+
+        if not self.integer_only:
+            raise NotImplementedError
+
+        else:
+            x_q = self.integer_only_quantization(x, scale)
+            return x_q, self.scale_out
+
+
 class Quant_Conv2d(Quant_Module):
     def __init__(self, weight_bit=8, bias_bit=32, downcast=False,
                  full_precision_flag=False, integer_only=True):

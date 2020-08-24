@@ -35,12 +35,14 @@ class SimpleFC(nn.Module):
         return self.fc3(x)
 
 
-test_linear, test_conv = False, False
-test_bn_folding = True
+test_linear, test_conv = False, True
+test_relu = True
+test_bn_folding = False
 input_quant_function = SymmetricQuantFunction.apply
 
 
 with torch.no_grad():
+
     if test_linear:
 
         # Test Quant_Linear
@@ -114,6 +116,47 @@ with torch.no_grad():
         print(output - output_dq)
         print()
         print('============================================\n')
+
+    if test_relu:
+        # Test Quant_Linear
+        print('=========== Quant_Relu Test ==============\n')
+        print('=========== Scale collection =============\n')
+        qact = Quant_Relu(8, full_precision_flag=True)
+
+        # full precision and unfixed
+        for i in range(10):
+            input = torch.randn([2, 4])
+            qact(input, None)
+
+        qact.fix()
+        qact.full_precision_flag = False
+
+        print(qact.x_max)
+        print(qact.scale_out)
+
+        input = torch.randn([2, 4])
+        real = F.relu(input)
+        print('real')
+        print(real)
+        print()
+
+        input_q, scale_input_q = input_quant_function(input, 8)
+        input_q = input_q.type(torch.int32)
+
+        output_q, scale_q = qact(input_q, scale_input_q)
+        print('output_q')
+        print(output_q, scale_q)
+        output = output_q.type(torch.float32) / scale_q
+        print('output')
+        print(output)
+        print()
+
+        '''
+        input_dq, scale_input_dq = input_quant_function(input, 8, None, None, None, False)
+        output_dq = qact_dq(F.relu(input_dq), scale_input_dq)
+        print('dq output')
+        print(output_dq)
+        '''
 
     if test_bn_folding:
         print('==============Test BN Folding===============\n')
