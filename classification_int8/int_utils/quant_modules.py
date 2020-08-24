@@ -22,7 +22,7 @@ class Quant_Module(nn.Module):
         self.weight_bit = weight_bit
         self.bias_bit = bias_bit
         self.weight_bit_function = SymmetricQuantFunction.apply
-        self.downcast_function = DownCastFunction.apply if downcast else None
+        self.downcast = downcast
 
     def __repr__(self):
         s = super(Quant_Module, self).__repr__()
@@ -106,8 +106,8 @@ class Quant_Conv2d(Quant_Module):
 
         # scale factor for conv2d output is out_channel-wise
         scale_out = scale_out.view(1, -1, 1, 1)
-        if self.downcast_function:
-            return self.downcast_function(out_q, scale_out)
+        if self.downcast:
+            return downcast_function(out_q, scale_out)
         return out_q, scale_out
 
 
@@ -165,6 +165,6 @@ class Quant_Linear(Quant_Module):
 
         # scale factor for matmul output is row-wise
         scale_out = scale_out.view(1, -1)
-        if self.downcast_function:
-            return self.downcast_function(out_q, scale_out)
+        if self.downcast:
+            return downcast_function(out_q, scale_out)
         return out_q, scale_out
