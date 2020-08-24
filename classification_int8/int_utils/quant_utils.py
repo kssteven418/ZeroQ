@@ -127,7 +127,6 @@ class SymmetricQuantFunction(Function):
             assert qtensor.dtype == qtype
             return qtensor, scale
         else:
-            qtensor, _ = linear_quantize(clamp_per_feature(x, -qrange, qrange), scale, qtype)
             dqtensor = linear_dequantize(qtensor, scale)
             assert dqtensor.dtype == torch.float32
             return dqtensor, scale

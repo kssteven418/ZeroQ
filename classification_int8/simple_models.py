@@ -116,13 +116,15 @@ with torch.no_grad():
         print('============================================\n')
 
     if test_bn_folding:
+        print('==============Test BN Folding===============\n')
+        print()
         model_name = 'resnet18'
         model = ptcv_get_model(model_name, pretrained=True)
 
-        layer = model.features.init_block.conv
-        img = torch.randn([2, 3, 200, 200])
         layer = model.features.stage4.unit1.body.conv1
         img = torch.randn([2, 256, 200, 200])
+        layer = model.features.init_block.conv
+        img = torch.randn([2, 3, 200, 200])
 
         conv = layer.conv
         bn = layer.bn
@@ -130,9 +132,6 @@ with torch.no_grad():
 
         real_conv = conv(img)
         real_bn = bn(real_conv)
-        print(real_conv)
-        print()
-        print()
 
         ### Test real vs. real-bn-folded
         #ql_fold = Quant_Conv2d(weight_bit=8, bias_bit=32, integer_only=False, \

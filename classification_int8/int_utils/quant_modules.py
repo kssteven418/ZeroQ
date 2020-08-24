@@ -32,7 +32,7 @@ class Quant_Module(nn.Module):
 
 
 class Quant_Conv2d(Quant_Module):
-    def __init__(self, weight_bit=8, bias_bit=32, downcast=True,
+    def __init__(self, weight_bit=8, bias_bit=32, downcast=False,
                  full_precision_flag=False, integer_only=True):
         super(Quant_Conv2d, self).__init__(weight_bit, bias_bit, downcast,
                                            full_precision_flag, integer_only)
@@ -69,14 +69,15 @@ class Quant_Conv2d(Quant_Module):
 
     def forward(self, x_q, scale_x):
         w = self.weight
-        # o, i, h, w -> o, iwh
-        w_transform = w.data.contiguous().view(self.out_channels, -1)
-        w_min = w_transform.min(dim=1).values
-        w_max = w_transform.max(dim=1).values
 
         if self.full_precision_flag:
             return F.conv2d(x_q, w, self.bias, self.stride, self.padding,
                             self.dilation, self.groups)
+
+        # o, i, h, w -> o, iwh
+        w_transform = w.data.contiguous().view(self.out_channels, -1)
+        w_min = w_transform.min(dim=1).values
+        w_max = w_transform.max(dim=1).values
 
         w_q, scale_w = self.weight_bit_function(self.weight, self.weight_bit, 
             w_min, w_max, None, self.integer_only, 'Conv2d_w')
@@ -130,12 +131,13 @@ class Quant_Linear(Quant_Module):
        
     def forward(self, x_q, scale_x):
         w = self.weight # float32
-        w_transform = w.data.detach()
-        w_min = w_transform.min(dim=1).values
-        w_max = w_transform.max(dim=1).values
 
         if self.full_precision_flag:
             return F.linear(x_q, weight=w, bias=self.bias)
+
+        w_transform = w.data.detach()
+        w_min = w_transform.min(dim=1).values
+        w_max = w_transform.max(dim=1).values
 
         # this will produce dequantized float32 value
         w_q, scale_w = self.weight_bit_function(self.weight, self.weight_bit, 
