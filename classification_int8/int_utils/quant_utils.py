@@ -92,7 +92,7 @@ def downcast_function(x, scale, output_dtype=torch.int8):
     #print('after downcast:', output_cast, scale_cast * scale)
     return output_cast, scale_cast * scale
 
-def requantization_function(x, scale, target_scale, shift=8):
+def requantization_function(x, scale, target_scale, shift=16):
     n = 2**shift
     multiplier = (target_scale / scale * n).type(x.dtype)
     x = x * multiplier

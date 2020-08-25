@@ -75,7 +75,7 @@ class Quant_Relu(nn.Module):
     def integer_only_quantization(self, x, scale):
         x = F.relu(x)
         # requantize
-        x = requantization_function(x, scale, self.scale_out, shift=8)
+        x = requantization_function(x, scale, self.scale_out)
         # clamp
         x = torch.clamp(x, 0, 2**self.activation_bit - 1)
         # down-cast

@@ -5,38 +5,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 from pytorchcv.model_provider import get_model as ptcv_get_model
 
-# from utils import *
-# from distill_data import *
 from int_utils import *
-
-QTensor = namedtuple('QTensor', ['tensor', 'scale'])
-
-class SimpleMatmul(nn.Module):
-    def __init__(self, input_size):
-        super(SimpleMatmul, self).__init__()
-        self.fc1 = nn.Linear(input_size, 4)
-
-    def forward(self, x):
-        x = self.fc1(x)
-        return x
-
-class SimpleFC(nn.Module):
-    def __init__(self, input_size):
-        super(SimpleFC, self).__init__()
-        self.fc1 = nn.Linear(input_size, 4)
-        self.relu1 = nn.ReLU()
-        self.fc2 = nn.Linear(4, 2)
-        self.relu2 = nn.ReLU()
-        self.fc3 = nn.Linear(2, 1)
-
-    def forward(self, x):
-        x = self.relu1(self.fc1(x))
-        x = self.relu2(self.fc2(x))
-        return self.fc3(x)
-
 
 test_linear, test_conv = False, True
 test_relu = True
+test_e2e = True
 test_bn_folding = False
 input_quant_function = SymmetricQuantFunction.apply
 
@@ -117,10 +90,11 @@ with torch.no_grad():
         print()
         print('============================================\n')
 
+
     if test_relu:
         # Test Quant_Linear
         print('=========== Quant_Relu Test ==============\n')
-        print('=========== Scale collection =============\n')
+        print('=========== Simple Example ===============\n')
         qact = Quant_Relu(8, full_precision_flag=True)
 
         # full precision and unfixed
@@ -151,12 +125,104 @@ with torch.no_grad():
         print(output)
         print()
 
-        '''
-        input_dq, scale_input_dq = input_quant_function(input, 8, None, None, None, False)
-        output_dq = qact_dq(F.relu(input_dq), scale_input_dq)
-        print('dq output')
-        print(output_dq)
-        '''
+
+        print('=========== COmplex Example ===============\n')
+        model_name = 'resnet18'
+        model = ptcv_get_model(model_name, pretrained=True)
+
+        layer = model.features.init_block.conv
+        shape = [2, 3, 200, 200]
+        layer = model.features.stage4.unit1.body.conv1
+        shape = [2, 256, 200, 200]
+
+        qact = Quant_Relu(8, full_precision_flag=True)
+        conv = layer.conv
+        bn = layer.bn
+        bn.eval()
+
+        # full precision and unfixed
+        for i in range(10):
+            input = torch.randn(shape)
+            output_bn = bn(conv(input))
+            qact(output_bn, None)
+
+        qact.fix()
+        qact.full_precision_flag = False
+
+        print(qact.x_max)
+        print(qact.scale_out)
+
+        input = torch.randn(shape)
+        output_bn = bn(conv(input))
+        real = F.relu(output_bn)
+        max_real_relu = torch.abs(real).max()
+
+        output_bn_q, scale_output_bn_q = input_quant_function(output_bn, 8)
+        output_bn_q = output_bn_q.type(torch.int32)
+
+        output_q, scale_q = qact(output_bn_q, scale_output_bn_q)
+        output = output_q.type(torch.float32) / scale_q
+
+        diff_relu = real - output
+        max_diff_relu = torch.abs(diff_relu).max()
+        print('relu error: %f / %f = %f' % (max_diff_relu, max_real_relu, 
+                                            max_diff_relu / max_real_relu))
+        print()
+
+
+    if test_e2e:
+        print('=========== Conv-BN-Relu E2E Test ==============\n')
+        model_name = 'resnet18'
+        model = ptcv_get_model(model_name, pretrained=True)
+        print(type(model))
+
+        layer = model.features.stage4.unit1.body.conv1
+        shape = [2, 256, 200, 200]
+        layer = model.features.init_block.conv
+        shape = [2, 3, 200, 200]
+
+        conv = layer.conv
+        bn = layer.bn
+        bn.eval()
+
+        ql = Quant_Conv2d(weight_bit=8, bias_bit=32)
+        ql.set_params(conv)
+        ql.batchnorm_folding(bn.running_mean, bn.running_var, bn.weight, bn.bias)
+        qact = Quant_Relu(8, full_precision_flag=True)
+
+        # full precision and unfixed
+        for i in range(1):
+            input = torch.randn(shape)
+            output_bn = bn(conv(input))
+            qact(output_bn, None)
+
+        qact.fix()
+        qact.full_precision_flag = False
+
+        print(qact.x_max)
+        print(qact.scale_out)
+
+        input = torch.randn(shape)
+        real_relu = layer(input)
+        #print(real_relu)
+        max_real_relu = torch.abs(real_relu).max()
+
+        input_q, scale_input = input_quant_function(input, 8)
+
+        output_q_fold, scale_fold = ql(input_q, scale_input)
+        output_q_relu, scale_relu = qact(output_q_fold, scale_fold)
+        output_relu = output_q_relu.type(torch.float32) / scale_relu
+
+        #print(output_relu)
+
+        diff_relu = real_relu - output_relu
+        print(diff_relu)
+        print(real_relu)
+        
+        max_diff_relu = torch.abs(diff_relu).max()
+        print('relu error: %f / %f = %f' % (max_diff_relu, max_real_relu, 
+                                            max_diff_relu / max_real_relu))
+        print()
 
     if test_bn_folding:
         print('==============Test BN Folding===============\n')
@@ -175,17 +241,6 @@ with torch.no_grad():
 
         real_conv = conv(img)
         real_bn = bn(real_conv)
-
-        ### Test real vs. real-bn-folded
-        #ql_fold = Quant_Conv2d(weight_bit=8, bias_bit=32, integer_only=False, \
-        #                       full_precision_flag=True)
-        #ql_fold.set_params(conv)
-        #ql_fold.batchnorm_folding(bn.running_mean, bn.running_var, bn.weight, bn.bias)
-        #real_folded = ql_fold(img, None)
-
-        #print((real_folded - real_bn) / real_bn)
-        #print(((real_folded - real_bn) / real_bn).max())
-
 
         ######################### 
         # Testing dquant mode
@@ -246,11 +301,3 @@ with torch.no_grad():
         max_diff_fold = torch.abs(diff_fold).max()
         print('fold error: %f / %f = %f' % (max_diff_fold, max_real_bn, max_diff_fold / max_real_bn))
         print()
-        '''
-        output_real = conv(img)
-        diff = output - output_real
-        output_reshape = output.view(-1)
-        diff_reshape = diff.view(-1)
-        print(diff_reshape[diff_reshape.argmax()])
-        print(output_reshape[diff_reshape.argmax()])
-        '''
