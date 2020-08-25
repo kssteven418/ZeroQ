@@ -9,7 +9,7 @@ from torch.nn import Parameter
 from .quant_utils import *
 
 class Quant_Module(nn.Module):
-    def __init__(self, weight_bit=8, bias_bit=32, downcast=True,
+    def __init__(self, weight_bit=8, bias_bit=32, 
                  full_precision_flag=False, integer_only=True):
         """
         weight: bit-setting for weight
@@ -22,7 +22,6 @@ class Quant_Module(nn.Module):
         self.weight_bit = weight_bit
         self.bias_bit = bias_bit
         self.weight_bit_function = SymmetricQuantFunction.apply
-        self.downcast = downcast
 
     def __repr__(self):
         s = super(Quant_Module, self).__repr__()
@@ -99,9 +98,9 @@ class Quant_Relu(nn.Module):
 
 
 class Quant_Conv2d(Quant_Module):
-    def __init__(self, weight_bit=8, bias_bit=32, downcast=False,
+    def __init__(self, weight_bit=8, bias_bit=32, 
                  full_precision_flag=False, integer_only=True):
-        super(Quant_Conv2d, self).__init__(weight_bit, bias_bit, downcast,
+        super(Quant_Conv2d, self).__init__(weight_bit, bias_bit, 
                                            full_precision_flag, integer_only)
 
     def set_params(self, conv):
@@ -134,11 +133,11 @@ class Quant_Conv2d(Quant_Module):
         self.bias.copy_(bias_data)
         self.weight.copy_(weight_data)
 
-    def forward(self, x_q, scale_x):
+    def forward(self, x):
         w = self.weight
 
         if self.full_precision_flag:
-            return F.conv2d(x_q, w, self.bias, self.stride, self.padding,
+            return F.conv2d(x, w, self.bias, self.stride, self.padding,
                             self.dilation, self.groups)
 
         # o, i, h, w -> o, iwh
@@ -146,21 +145,26 @@ class Quant_Conv2d(Quant_Module):
         w_min = w_transform.min(dim=1).values
         w_max = w_transform.max(dim=1).values
 
-        w_q, scale_w = self.weight_bit_function(self.weight, self.weight_bit, 
+        w_q  = self.weight_bit_function(self.weight, self.weight_bit, 
             w_min, w_max, None, self.integer_only, 'Conv2d_w')
+
+        # dequantization-and-floating-operation path for comparison and debugging purpose
+        if not self.integer_only:
+            assert w_q.dtype == torch.float32
+            assert x.dtype == torch.float32
+            return F.conv2d(x, w_q, self.bias, self.stride, self.padding,
+                            self.dilation, self.groups)
+
+        assert isinstance(w_q, tuple)
+        w_q, scale_w = w_q
+        x_q, scale_x = x
         scale_out = scale_w * scale_x
+
         if self.bias is None:
             b_q = None
         else:
             b_q, _ = self.weight_bit_function(self.bias, self.bias_bit, 
                     None, None, scale_out, self.integer_only, 'Conv2d_b')
-        # dequantization-and-floating-operation path for comparison and debugging purpose
-        if not self.integer_only:
-            assert w_q.dtype == torch.float32
-            assert x_q.dtype == torch.float32
-            assert b_q is None or b_q.dtype == torch.float32
-            return F.conv2d(x_q, w_q, b_q, self.stride, self.padding,
-                            self.dilation, self.groups)
 
         # integer-only-operation-path
         # cast x_q and w_q from int8 to int32
@@ -174,15 +178,13 @@ class Quant_Conv2d(Quant_Module):
 
         # scale factor for conv2d output is out_channel-wise
         scale_out = scale_out.view(1, -1, 1, 1)
-        if self.downcast:
-            return downcast_function(out_q, scale_out)
         return out_q, scale_out
 
 
 class Quant_Linear(Quant_Module):
-    def __init__(self, weight_bit=8, bias_bit=32, downcast=True,
+    def __init__(self, weight_bit=8, bias_bit=32, 
                  full_precision_flag=False, integer_only=True):
-        super(Quant_Linear, self).__init__(weight_bit, bias_bit, downcast,
+        super(Quant_Linear, self).__init__(weight_bit, bias_bit, 
                                            full_precision_flag, integer_only)
 
     def set_params(self, linear):
@@ -196,32 +198,35 @@ class Quant_Linear(Quant_Module):
         except AttributeError:
             self.bias = None
        
-    def forward(self, x_q, scale_x):
+    def forward(self, x):
         w = self.weight # float32
 
         if self.full_precision_flag:
-            return F.linear(x_q, weight=w, bias=self.bias)
+            return F.linear(x, weight=w, bias=self.bias)
 
         w_transform = w.data.detach()
         w_min = w_transform.min(dim=1).values
         w_max = w_transform.max(dim=1).values
 
-        # this will produce dequantized float32 value
-        w_q, scale_w = self.weight_bit_function(self.weight, self.weight_bit, 
+        w_q = self.weight_bit_function(self.weight, self.weight_bit, 
             w_min, w_max, None, self.integer_only, 'Linear_w')
+
+        # dequantization-and-floating-operation path for comparison and debugging purpose
+        if not self.integer_only:
+            assert w_q.dtype == torch.float32
+            assert x.dtype == torch.float32
+            return F.linear(x, weight=w_q, bias=self.bias)
+
+        assert isinstance(w_q, tuple)
+        w_q, scale_w = w_q
+        x_q, scale_x = x
         scale_out = scale_w * scale_x
+
         if self.bias is None:
             b_q = None
         else:
             b_q, _ = self.weight_bit_function(self.bias, self.bias_bit, 
                     None, None, scale_out, self.integer_only, 'Linear_b')
-
-        # dequantization-and-floating-operation path for comparison and debugging purpose
-        if not self.integer_only:
-            assert w_q.dtype == torch.float32
-            assert x_q.dtype == torch.float32
-            assert b_q is None or b_q.dtype == torch.float32
-            return F.linear(x_q, weight=w_q, bias=b_q)
 
         # integer-only-operation-path
         # cast x_q and w_q from int8 to int32
@@ -234,6 +239,4 @@ class Quant_Linear(Quant_Module):
 
         # scale factor for matmul output is row-wise
         scale_out = scale_out.view(1, -1)
-        if self.downcast:
-            return downcast_function(out_q, scale_out)
         return out_q, scale_out

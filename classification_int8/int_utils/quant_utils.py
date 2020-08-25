@@ -136,7 +136,7 @@ class SymmetricQuantFunction(Function):
         else:
             dqtensor = linear_dequantize(qtensor, scale)
             assert dqtensor.dtype == torch.float32
-            return dqtensor, scale
+            return dqtensor
 
     @staticmethod
     def backward(ctx, grad_output):
