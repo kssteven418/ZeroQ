@@ -9,44 +9,60 @@ from int_utils import *
 import models.resnet as resnet
 import models.resnet_original as resnet_base
 
-test_block = True
-test_unit = False
+test_block = False
+test_unit = True
+test_model = True
 input_quant_function = SymmetricQuantFunction.apply
 
+def test_quantize(layer, shape):
+
+    for i in range(10):
+        input = torch.randn(shape)
+        layer(input)
+
+    freeze(layer)
+    layer.eval()
+
+    input = torch.randn(shape)
+    input_q, scale_input = input_quant_function(input, 8)
+
+    real = layer(input)
+    real_max = real.max()
+    #print(real[0][0])
+
+    quantize_model(layer)
+    q, scale_q = layer((input_q, scale_input))
+    output = q.type(torch.float32) / scale_q
+    diff = real - output
+    diff_max = torch.abs(diff).max()
+    #print(output[0][0])
+    print('diff: %f / %f = %f' % (diff_max, real_max, diff_max/real_max))
+
 with torch.no_grad():
+
+    if test_model:
+        pass
    
     if test_unit:
+        shape = [2, 4, 10, 10]
         layer = resnet.ResUnit(4, 8, stride=1)
-        input = torch.randn([2, 4, 10, 10])
+        input = torch.randn(shape)
         state_dict = layer.state_dict()
 
         layer_base = resnet_base.ResUnit(4, 8 , stride=1)
         layer_base.load_state_dict(state_dict, strict=False)
 
-        print(layer)
+        #print(layer)
         assert (layer(input) - layer_base(input)).sum() == 0
 
+        test_quantize(layer, shape)
+
+
     if test_block:
-        shape = [2, 4, 10, 10]
+        shape = [1, 2, 5, 5]
+        layer = resnet.conv1x1_block(2, 2)
 
-        layer = resnet.conv1x1_block(4, 8)
-        for i in range(10):
-            input = torch.randn(shape)
-            layer(input)
-            #print(layer)
-
-        freeze(layer)
-
-        input = torch.randn(shape)
-        input_q, scale_input = input_quant_function(input, 8)
-
-        real = layer(input)
-        print(real[0][0])
-
-        quantize_model(layer)
-        q, scale_q = layer((input_q, scale_input))
-        output = q.type(torch.float32) / scale_q
-        print(output[0][0])
+        test_quantize(layer, shape)
     
     """
     if test_linear:

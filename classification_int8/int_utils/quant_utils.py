@@ -95,6 +95,7 @@ def downcast_function(x, scale, output_dtype=torch.int8):
 def requantization_function(x, scale, target_scale, shift=16):
     n = 2**shift
     multiplier = (target_scale / scale * n).type(x.dtype)
+    print(multiplier)
     x = x * multiplier
     x = x >> torch.Tensor([shift])
     return x

@@ -94,9 +94,10 @@ class Quant_Relu(nn.Module):
         """
         fix the activation range by setting running stat
         """
+        print("Model fixed")
         self.running_stat = False
         n = 2**self.activation_bit - 1
-        self.scale_out = n / self.x_max
+        self.scale_out = n / (self.x_max * 1.)
 
     def integer_only_quantization(self, x, scale):
         x = F.relu(x)
