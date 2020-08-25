@@ -18,14 +18,14 @@ input_quant_function = SymmetricQuantFunction.apply
 
 with torch.no_grad():
    
-    model = resnet18(pretrained=True)
-    print(type(model))
+    #model = resnet18(pretrained=True)
+    #print(type(model))
 
     layer = ResUnit(4, 8, stride=1)
     state_dict = layer.state_dict()
 
     layer_base = resnet_base.ResUnit(4, 8 , stride=1)
-    layer_base.load_state_dict(state_dict)
+    layer_base.load_state_dict(state_dict, strict=False)
 
     print(layer)
 

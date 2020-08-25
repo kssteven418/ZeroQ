@@ -63,7 +63,7 @@ class Quant_Relu(nn.Module):
     Class to quantize given linear layer weights
     """
     def __init__(self,
-                 activation_bit,
+                 activation_bit=8,
                  full_precision_flag=False,
                  integer_only=True,
                  running_stat=True):
@@ -86,10 +86,9 @@ class Quant_Relu(nn.Module):
         self.scale_out = None
 
     def __repr__(self):
-        return "{0}(activation_bit={1}, full_precision_flag={2}, running_stat={3}, Act_min: {4:.2f}, Act_max: {5:.2f})".format(
+        return "{0}(activation_bit={1}, full_precision_flag={2}, running_stat={3}, Act_max: {4:.2f})".format(
             self.__class__.__name__, self.activation_bit,
-            self.full_precision_flag, self.running_stat, self.x_min.item(),
-            self.x_max.item())
+            self.full_precision_flag, self.running_stat, self.x_max.item())
 
     def fix(self):
         """

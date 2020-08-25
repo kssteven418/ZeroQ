@@ -15,6 +15,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from int_utils import *
+
 
 def round_channels(channels,
                    divisor=8):
@@ -257,7 +259,9 @@ class ConvBlock(nn.Module):
                 num_features=out_channels,
                 eps=bn_eps)
         if self.activate:
-            self.activ = get_activation_layer(activation)
+            self.activ = Quant_Relu(integer_only=integer_only,
+                    full_precision_flag=full_precision_flag)
+            #self.activ = get_activation_layer(activation)
 
     def forward(self, x):
         x = self.conv(x)
