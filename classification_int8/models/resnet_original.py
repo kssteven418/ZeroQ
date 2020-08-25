@@ -12,7 +12,6 @@ import os
 import torch.nn as nn
 import torch.nn.init as init
 from .common import conv1x1_block, conv3x3_block, conv7x7_block
-from int_utils import *
 
 
 class ResBlock(nn.Module):
@@ -31,12 +30,8 @@ class ResBlock(nn.Module):
     def __init__(self,
                  in_channels,
                  out_channels,
-                 stride,
-                 full_precision_flag=True,
-                 integer_only=True):
+                 stride):
         super(ResBlock, self).__init__()
-        self.full_precision_flag = full_precision_flag
-        self.integer_only = integer_only
         self.conv1 = conv3x3_block(
             in_channels=in_channels,
             out_channels=out_channels,
@@ -80,12 +75,8 @@ class ResBottleneck(nn.Module):
                  padding=1,
                  dilation=1,
                  conv1_stride=False,
-                 bottleneck_factor=4,
-                 full_precision_flag=True,
-                 integer_only=True):
+                 bottleneck_factor=4):
         super(ResBottleneck, self).__init__()
-        self.full_precision_flag = full_precision_flag
-        self.integer_only = integer_only
         mid_channels = out_channels // bottleneck_factor
 
         self.conv1 = conv1x1_block(
@@ -138,15 +129,9 @@ class ResUnit(nn.Module):
                  padding=1,
                  dilation=1,
                  bottleneck=True,
-                 conv1_stride=False,
-                 full_precision_flag=True,
-                 integer_only=True):
+                 conv1_stride=False):
         super(ResUnit, self).__init__()
-        self.full_precision_flag = full_precision_flag
-        self.integer_only = integer_only
         self.resize_identity = (in_channels != out_channels) or (stride != 1)
-        self.full_precision_flag = full_precision_flag
-        self.integer_only = integer_only
 
         if bottleneck:
             self.body = ResBottleneck(
@@ -168,8 +153,6 @@ class ResUnit(nn.Module):
                 stride=stride,
                 activation=None)
         self.activ = nn.ReLU(inplace=True)
-        self.addition = Addition(full_precision_flag=self.full_precision_flag,
-                                 integer_only=self.integer_only)
 
     def forward(self, x):
         if self.resize_identity:
@@ -177,7 +160,7 @@ class ResUnit(nn.Module):
         else:
             identity = x
         x = self.body(x)
-        x = self.addition(x, identity)
+        x = x + identity
         x = self.activ(x)
         return x
 
@@ -195,9 +178,7 @@ class ResInitBlock(nn.Module):
     """
     def __init__(self,
                  in_channels,
-                 out_channels,
-                 full_precision_flag=True,
-                 integer_only=True):
+                 out_channels):
         super(ResInitBlock, self).__init__()
         self.conv = conv7x7_block(
             in_channels=in_channels,
@@ -242,12 +223,8 @@ class ResNet(nn.Module):
                  conv1_stride,
                  in_channels=3,
                  in_size=(224, 224),
-                 num_classes=1000,
-                 full_precision_flag=True,
-                 integer_only=True):
+                 num_classes=1000):
         super(ResNet, self).__init__()
-        self.full_precision_flag = full_precision_flag
-        self.integer_only = integer_only
         self.in_size = in_size
         self.num_classes = num_classes
 
