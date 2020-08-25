@@ -168,7 +168,8 @@ class ResUnit(nn.Module):
                 out_channels=out_channels,
                 stride=stride,
                 activation=None)
-        self.activ = nn.ReLU(inplace=True)
+        self.activ = Quant_Relu(integer_only=integer_only,
+                    full_precision_flag=full_precision_flag)
         self.addition = Addition(full_precision_flag=self.full_precision_flag,
                                  integer_only=self.integer_only)
 

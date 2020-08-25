@@ -244,8 +244,12 @@ class ConvBlock(nn.Module):
         self.integer_only = integer_only
         self.activate = (activation is not None)
         self.use_bn = use_bn
+        self.bn_folded = False
 
-        self.conv = nn.Conv2d(
+        self.conv = Quant_Conv2d(
+            integer_only=integer_only,
+            full_precision_flag=full_precision_flag)
+        conv = nn.Conv2d(
             in_channels=in_channels,
             out_channels=out_channels,
             kernel_size=kernel_size,
@@ -254,6 +258,8 @@ class ConvBlock(nn.Module):
             dilation=dilation,
             groups=groups,
             bias=bias)
+        self.conv.set_params(conv)
+
         if self.use_bn:
             self.bn = nn.BatchNorm2d(
                 num_features=out_channels,

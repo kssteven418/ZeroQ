@@ -32,6 +32,11 @@ with torch.no_grad():
     input = torch.randn([2, 4, 10, 10])
     assert (layer(input) - layer_base(input)).sum() == 0
 
+
+    quantize_model(layer)
+
+    print(layer)
+
     """
     if test_linear:
 

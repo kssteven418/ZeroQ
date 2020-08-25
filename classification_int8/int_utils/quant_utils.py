@@ -1,4 +1,3 @@
-from collections import namedtuple
 import math
 import numpy as np
 from torch.autograd import Function, Variable
@@ -105,6 +104,10 @@ class Addition(nn.Module):
        super(Addition, self).__init__() 
        self.full_precision_flag = full_precision_flag
        self.integer_only = integer_only
+
+    def __repr__(self):
+         return "{0}(full_precision_flag={1}, integer_only={2})".format(
+                 self.__class__.__name__, self.full_precision_flag, self.integer_only)
 
     def forward(self, x, y):
         if not self.integer_only or self.full_precision_flag:

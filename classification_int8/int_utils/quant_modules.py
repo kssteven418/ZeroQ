@@ -25,8 +25,8 @@ class Quant_Module(nn.Module):
 
     def __repr__(self):
         s = super(Quant_Module, self).__repr__()
-        s = "(" + s + " weight_bit={}, bias_bit={}, full_precision_flag={})".format(
-                 self.weight_bit, self.bias_bit, self.full_precision_flag)
+        s = "(" + s + " weight_bit={}, bias_bit={}, full_precision_flag={}, integer_only={})".format(
+                 self.weight_bit, self.bias_bit, self.full_precision_flag, self.integer_only)
         return s
 
 class Quant_MaxPool2d(nn.Module):
