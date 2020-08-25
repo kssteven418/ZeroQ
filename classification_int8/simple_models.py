@@ -7,9 +7,10 @@ from pytorchcv.model_provider import get_model as ptcv_get_model
 
 from int_utils import *
 
-test_linear, test_conv = True, True
-test_bn_folding = True
-test_relu = True
+test_linear, test_conv = False, False
+test_relu = False
+test_pool = True
+test_bn_folding = False
 test_e2e = False
 input_quant_function = SymmetricQuantFunction.apply
 
@@ -170,6 +171,36 @@ with torch.no_grad():
                                             max_diff_relu / max_real_relu))
         print()
 
+    if test_pool:
+        print('=========== Pool Test ==============\n')
+        # Basic
+        x = (torch.randn([1, 2, 6, 6]) * 100).type(torch.int8)
+        x_float = x.type(torch.float32)
+
+        pool = nn.MaxPool2d(kernel_size=2)
+        real = pool(x_float)
+
+        qpool = Quant_MaxPool2d()
+        qpool.set_params(pool)
+
+        qpool.full_precision_flag = True
+        real_2 = qpool(x_float)
+
+        qpool.full_precision_flag = False
+        q, _ = qpool((x, None))
+
+        assert (real - real_2).sum() == 0
+        assert (real - q).sum() == 0
+
+        # Q-DQ
+        x = torch.randn([1, 2, 6, 6])
+        real = pool(x)
+        input_q, scale_input = input_quant_function(x, 8)
+        output_q, scale_output = qpool((input_q, scale_input))
+        output = output_q.type(torch.float32) / scale_output
+
+        print(real - output)
+        
 
     if test_e2e:
         print('=========== Conv-BN-Relu E2E Test ==============\n')

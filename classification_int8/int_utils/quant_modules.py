@@ -29,6 +29,34 @@ class Quant_Module(nn.Module):
                  self.weight_bit, self.bias_bit, self.full_precision_flag)
         return s
 
+class Quant_MaxPool2d(nn.Module):
+    def __init__(self, full_precision_flag=False):
+        super(Quant_MaxPool2d, self).__init__()
+        self.full_precision_flag = full_precision_flag
+
+    def set_params(self, pool):
+        self.args = {
+            'kernel_size': pool.kernel_size,
+            'padding': pool.padding,
+            'stride': pool.stride,
+            'dilation': pool.dilation,
+            'return_indices': pool.return_indices,
+            'ceil_mode': pool.ceil_mode
+            }
+
+    def forward(self, x):
+        if self.full_precision_flag:
+            return F.max_pool2d(x, **self.args)
+
+        assert isinstance(x, tuple)
+        x, scale = x
+        # For now, simply typecast x into float32, as integer pooling is not supported
+        dtype = x.dtype
+        x = x.type(torch.float32)
+        x = F.max_pool2d(x, **self.args)
+        x = x.type(dtype)
+        return x, scale
+
 
 class Quant_Relu(nn.Module):
     """
