@@ -205,10 +205,14 @@ class ResInitBlock(nn.Module):
             in_channels=in_channels,
             out_channels=out_channels,
             stride=2)
-        self.pool = nn.MaxPool2d(
+        self.pool = Quant_MaxPool2d(
+                full_precision_flag=full_precision_flag)
+        pool = nn.MaxPool2d(
             kernel_size=3,
             stride=2,
             padding=1)
+        self.pool.set_params(pool)
+
 
     def forward(self, x):
         x = self.conv(x)

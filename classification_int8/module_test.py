@@ -10,7 +10,7 @@ import models.resnet as resnet
 import models.resnet_original as resnet_base
 
 test_block = False
-test_unit = True
+test_unit = False
 test_model = True
 input_quant_function = SymmetricQuantFunction.apply
 
@@ -31,6 +31,8 @@ def test_quantize(layer, shape):
     #print(real[0][0])
 
     quantize_model(layer)
+    print(layer)
+
     q, scale_q = layer((input_q, scale_input))
     output = q.type(torch.float32) / scale_q
     diff = real - output
@@ -41,21 +43,32 @@ def test_quantize(layer, shape):
 with torch.no_grad():
 
     if test_model:
-        pass
+        print('========Test ResNet18======') 
+        layer = resnet.resnet18()
+        shape = [2, 3, 224, 224]
+        test_quantize(layer, shape)
+
    
     if test_unit:
-        shape = [2, 4, 10, 10]
-        layer = resnet.ResUnit(4, 8, stride=1)
+        print('========Test ResUnit======') 
+        shape = [32, 128, 100, 100]
+        layer = resnet.ResUnit(128, 256, stride=1)
         input = torch.randn(shape)
         state_dict = layer.state_dict()
 
-        layer_base = resnet_base.ResUnit(4, 8 , stride=1)
+        layer_base = resnet_base.ResUnit(128, 256, stride=1)
         layer_base.load_state_dict(state_dict, strict=False)
 
         #print(layer)
         assert (layer(input) - layer_base(input)).sum() == 0
 
         test_quantize(layer, shape)
+        print()
+
+        print('========Test ResInit======') 
+        layer = resnet.ResInitBlock(128, 256)
+        test_quantize(layer, shape)
+        print()
 
 
     if test_block:
