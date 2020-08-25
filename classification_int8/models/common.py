@@ -264,6 +264,7 @@ class ConvBlock(nn.Module):
             self.bn = nn.BatchNorm2d(
                 num_features=out_channels,
                 eps=bn_eps)
+            self.conv.set_subsequent_bn(self.bn)
         if self.activate:
             self.activ = Quant_Relu(integer_only=integer_only,
                     full_precision_flag=full_precision_flag)

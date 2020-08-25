@@ -10,9 +10,9 @@ from int_utils import *
 test_linear, test_conv = False, False
 test_relu = False
 test_pool = False
-test_addition = True
+test_addition = False
 test_bn_folding = False
-test_e2e = False
+test_e2e = True
 input_quant_function = SymmetricQuantFunction.apply
 
 
@@ -200,6 +200,9 @@ with torch.no_grad():
         output_q, scale_output = qpool((input_q, scale_input))
         output = output_q.type(torch.float32) / scale_output
 
+        print('real')
+        print(real)
+        print('diff')
         print(real - output)
         
     if test_addition:
@@ -245,13 +248,13 @@ with torch.no_grad():
         for i in range(1):
             input = torch.randn(shape)
             output_bn = bn(conv(input))
-            qact(output_bn, None)
+            qact(output_bn)
 
         qact.fix()
         qact.full_precision_flag = False
 
-        print(qact.x_max)
-        print(qact.scale_out)
+        #print(qact.x_max)
+        #print(qact.scale_out)
 
         input = torch.randn(shape)
         real_relu = layer(input)
@@ -260,15 +263,15 @@ with torch.no_grad():
 
         input_q, scale_input = input_quant_function(input, 8)
 
-        output_q_fold, scale_fold = ql(input_q, scale_input)
-        output_q_relu, scale_relu = qact(output_q_fold, scale_fold)
+        output_q_fold, scale_fold = ql((input_q, scale_input))
+        output_q_relu, scale_relu = qact((output_q_fold, scale_fold))
         output_relu = output_q_relu.type(torch.float32) / scale_relu
 
         #print(output_relu)
 
         diff_relu = real_relu - output_relu
-        print(diff_relu)
-        print(real_relu)
+        #print(diff_relu)
+        #print(real_relu)
         
         max_diff_relu = torch.abs(diff_relu).max()
         print('relu error: %f / %f = %f' % (max_diff_relu, max_real_relu, 

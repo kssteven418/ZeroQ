@@ -132,6 +132,8 @@ class Quant_Conv2d(Quant_Module):
                  full_precision_flag=False, integer_only=True):
         super(Quant_Conv2d, self).__init__(weight_bit, bias_bit, 
                                            full_precision_flag, integer_only)
+        self.subsequent_bn = None
+        self.bn_folded = False
 
     def set_params(self, conv):
         self.in_channels = conv.in_channels
@@ -149,6 +151,14 @@ class Quant_Conv2d(Quant_Module):
         except AttributeError:
             self.bias = None
 
+    def set_subsequent_bn(self, bn):
+        self.subsequent_bn = bn
+
+    def subsequent_batchnorm_folding(self):
+        if self.subsequent_bn is not None:
+            bn = self.subsequent_bn
+            self.batchnorm_folding(bn.running_mean, bn.running_var, bn.weight, bn.bias)
+
     def batchnorm_folding(self, mean, var, weight, bias):
         mean, var, weight, bias = mean.data, var.data, weight.data, bias.data
         if self.bias is None:
@@ -162,6 +172,7 @@ class Quant_Conv2d(Quant_Module):
                       torch.sqrt(1e-8 + var.view(-1, 1, 1, 1))
         self.bias.copy_(bias_data)
         self.weight.copy_(weight_data)
+        self.bn_folded = True
 
     def forward(self, x):
         w = self.weight
