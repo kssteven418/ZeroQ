@@ -8,9 +8,9 @@ from pytorchcv.model_provider import get_model as ptcv_get_model
 from int_utils import *
 
 test_linear, test_conv = True, True
+test_bn_folding = True
 test_relu = False
 test_e2e = False
-test_bn_folding = False
 input_quant_function = SymmetricQuantFunction.apply
 
 
@@ -247,11 +247,11 @@ with torch.no_grad():
         # Testing dquant mode
         # without bn folding
         print('dequant mode testing...')
-        input_dq, scale_input = input_quant_function(img, 8, None, None, None, False)
+        input_dq = input_quant_function(img, 8, None, None, None, False)
 
         ql_dequant = Quant_Conv2d(weight_bit=8, bias_bit=32, integer_only=False)
         ql_dequant.set_params(conv)
-        output_dq_conv = ql_dequant(input_dq, scale_input)
+        output_dq_conv = ql_dequant(input_dq)
 
         diff_conv = real_conv - output_dq_conv
         max_real_conv = torch.abs(real_conv).max()
@@ -266,7 +266,7 @@ with torch.no_grad():
         print('bn error: %f / %f = %f' % (max_diff_bn, max_real_bn, max_diff_bn / max_real_bn))
 
         ql_dequant.batchnorm_folding(bn.running_mean, bn.running_var, bn.weight, bn.bias)
-        output_dq_fold = ql_dequant(input_dq, scale_input)
+        output_dq_fold = ql_dequant(input_dq)
 
         diff_fold = real_bn - output_dq_fold
         max_diff_fold = torch.abs(diff_fold).max()
@@ -279,7 +279,7 @@ with torch.no_grad():
 
         ql = Quant_Conv2d(weight_bit=8, bias_bit=32)
         ql.set_params(conv)
-        output_q, scale_output = ql(input_q, scale_input)
+        output_q, scale_output = ql((input_q, scale_input))
         output_conv = output_q.type(torch.float32) / scale_output
 
         diff_conv = real_conv - output_conv
@@ -295,7 +295,7 @@ with torch.no_grad():
         print('bn error: %f / %f = %f' % (max_diff_bn, max_real_bn, max_diff_bn / max_real_bn))
 
         ql.batchnorm_folding(bn.running_mean, bn.running_var, bn.weight, bn.bias)
-        output_q, scale_output = ql(input_q, scale_input)
+        output_q, scale_output = ql((input_q, scale_input))
         output_fold = output_q.type(torch.float32) / scale_output
 
         diff_fold = real_bn - output_fold
