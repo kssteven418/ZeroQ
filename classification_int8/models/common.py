@@ -272,7 +272,7 @@ class ConvBlock(nn.Module):
 
     def forward(self, x):
         x = self.conv(x)
-        if self.use_bn:
+        if self.use_bn and self.full_precision_flag:
             x = self.bn(x)
         if self.activate:
             x = self.activ(x)

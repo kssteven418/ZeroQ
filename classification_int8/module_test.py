@@ -6,37 +6,48 @@ import torch.nn.functional as F
 from pytorchcv.model_provider import get_model as ptcv_get_model
 
 from int_utils import *
-from models.resnet import *
+import models.resnet as resnet
 import models.resnet_original as resnet_base
 
-test_linear, test_conv = False, False
-test_relu = False
-test_e2e = False
-test_bn_folding = False
+test_block = True
+test_unit = False
 input_quant_function = SymmetricQuantFunction.apply
-
 
 with torch.no_grad():
    
-    #model = resnet18(pretrained=True)
-    #print(type(model))
+    if test_unit:
+        layer = resnet.ResUnit(4, 8, stride=1)
+        input = torch.randn([2, 4, 10, 10])
+        state_dict = layer.state_dict()
 
-    layer = ResUnit(4, 8, stride=1)
-    state_dict = layer.state_dict()
+        layer_base = resnet_base.ResUnit(4, 8 , stride=1)
+        layer_base.load_state_dict(state_dict, strict=False)
 
-    layer_base = resnet_base.ResUnit(4, 8 , stride=1)
-    layer_base.load_state_dict(state_dict, strict=False)
+        print(layer)
+        assert (layer(input) - layer_base(input)).sum() == 0
 
-    print(layer)
+    if test_block:
+        shape = [2, 4, 10, 10]
 
-    input = torch.randn([2, 4, 10, 10])
-    assert (layer(input) - layer_base(input)).sum() == 0
+        layer = resnet.conv1x1_block(4, 8)
+        for i in range(10):
+            input = torch.randn(shape)
+            layer(input)
+            #print(layer)
 
+        freeze(layer)
 
-    quantize_model(layer)
+        input = torch.randn(shape)
+        input_q, scale_input = input_quant_function(input, 8)
 
-    print(layer)
+        real = layer(input)
+        print(real[0][0])
 
+        quantize_model(layer)
+        q, scale_q = layer((input_q, scale_input))
+        output = q.type(torch.float32) / scale_q
+        print(output[0][0])
+    
     """
     if test_linear:
 
