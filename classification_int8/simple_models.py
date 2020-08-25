@@ -9,7 +9,7 @@ from int_utils import *
 
 test_linear, test_conv = True, True
 test_bn_folding = True
-test_relu = False
+test_relu = True
 test_e2e = False
 input_quant_function = SymmetricQuantFunction.apply
 
@@ -101,7 +101,7 @@ with torch.no_grad():
         # full precision and unfixed
         for i in range(10):
             input = torch.randn([2, 4])
-            qact(input, None)
+            qact(input)
 
         qact.fix()
         qact.full_precision_flag = False
@@ -118,7 +118,7 @@ with torch.no_grad():
         input_q, scale_input_q = input_quant_function(input, 8)
         input_q = input_q.type(torch.int32)
 
-        output_q, scale_q = qact(input_q, scale_input_q)
+        output_q, scale_q = qact((input_q, scale_input_q))
         print('output_q')
         print(output_q, scale_q)
         output = output_q.type(torch.float32) / scale_q
@@ -145,7 +145,7 @@ with torch.no_grad():
         for i in range(10):
             input = torch.randn(shape)
             output_bn = bn(conv(input))
-            qact(output_bn, None)
+            qact(output_bn)
 
         qact.fix()
         qact.full_precision_flag = False
@@ -161,7 +161,7 @@ with torch.no_grad():
         output_bn_q, scale_output_bn_q = input_quant_function(output_bn, 8)
         output_bn_q = output_bn_q.type(torch.int32)
 
-        output_q, scale_q = qact(output_bn_q, scale_output_bn_q)
+        output_q, scale_q = qact((output_bn_q, scale_output_bn_q))
         output = output_q.type(torch.float32) / scale_q
 
         diff_relu = real - output

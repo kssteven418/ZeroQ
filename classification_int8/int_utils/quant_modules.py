@@ -80,8 +80,9 @@ class Quant_Relu(nn.Module):
         # down-cast
         return x.type(self.qtype)
 
-    def forward(self, x, scale):
+    def forward(self, x):
         if self.running_stat:
+            assert self.full_precision_flag or not self.integer_only
             x_max = x.data.max()
             # in-place operation used on multi-gpus
             self.x_max += -self.x_max + max(self.x_max, x_max)
@@ -93,6 +94,8 @@ class Quant_Relu(nn.Module):
             raise NotImplementedError
 
         else:
+            assert isinstance(x, tuple)
+            x, scale = x
             x_q = self.integer_only_quantization(x, scale)
             return x_q, self.scale_out
 
