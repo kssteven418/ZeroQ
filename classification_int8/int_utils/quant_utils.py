@@ -96,9 +96,18 @@ def requantization_function(x, scale, target_scale, shift=16):
     n = 2**shift
     multiplier = (target_scale / scale * n).type(x.dtype)
     x = x * multiplier
-    x = x >> shift
+    x = x >> torch.Tensor([shift])
     return x
 
+def addition_function(x, y, integer_only=True):
+    if not integer_only:
+        return x + y
+    else:
+        assert isinstance(x, tuple) and isinstance(y, tuple)
+        x, scale_x = x
+        y, scale_y = y
+        y_rescaled = requantization_function(y, scale_y, scale_x, shift=8)
+        return x + y_rescaled, scale_x
 
 class SymmetricQuantFunction(Function):
 

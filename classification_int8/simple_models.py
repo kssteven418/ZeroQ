@@ -9,7 +9,8 @@ from int_utils import *
 
 test_linear, test_conv = False, False
 test_relu = False
-test_pool = True
+test_pool = False
+test_addition = True
 test_bn_folding = False
 test_e2e = False
 input_quant_function = SymmetricQuantFunction.apply
@@ -201,6 +202,22 @@ with torch.no_grad():
 
         print(real - output)
         
+    if test_addition:
+        x = torch.randn([1, 2, 4, 4])
+        y = torch.randn([1, 2, 4, 4])
+        real = x + y
+        print(real)
+        
+        input_x, scale_x = input_quant_function(x, 8)
+        input_x = input_x.type(torch.int32)
+
+        input_y, scale_y = input_quant_function(y, 8)
+        input_y = input_y.type(torch.int32)
+
+        output_q, scale = addition_function((input_x, scale_x), (input_y, scale_y))
+        output = output_q.type(torch.float32) / scale
+        print(output)
+
 
     if test_e2e:
         print('=========== Conv-BN-Relu E2E Test ==============\n')
