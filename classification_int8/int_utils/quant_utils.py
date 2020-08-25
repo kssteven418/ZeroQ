@@ -3,6 +3,7 @@ import math
 import numpy as np
 from torch.autograd import Function, Variable
 import torch
+import torch.nn as nn
 
 def adjust_shape(target, source):
     """
@@ -99,15 +100,21 @@ def requantization_function(x, scale, target_scale, shift=16):
     x = x >> torch.Tensor([shift])
     return x
 
-def addition_function(x, y, integer_only=True):
-    if not integer_only:
-        return x + y
-    else:
-        assert isinstance(x, tuple) and isinstance(y, tuple)
-        x, scale_x = x
-        y, scale_y = y
-        y_rescaled = requantization_function(y, scale_y, scale_x, shift=8)
-        return x + y_rescaled, scale_x
+class Addition(nn.Module):
+    def __init__(self, full_precision_flag=True, integer_only=True):
+       super(Addition, self).__init__() 
+       self.full_precision_flag = full_precision_flag
+       self.integer_only = integer_only
+
+    def forward(self, x, y):
+        if not self.integer_only or self.full_precision_flag:
+            return x + y
+        else:
+            assert isinstance(x, tuple) and isinstance(y, tuple)
+            x, scale_x = x
+            y, scale_y = y
+            y_rescaled = requantization_function(y, scale_y, scale_x, shift=8)
+            return x + y_rescaled, scale_x
 
 class SymmetricQuantFunction(Function):
 

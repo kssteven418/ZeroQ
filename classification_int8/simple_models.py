@@ -203,6 +203,8 @@ with torch.no_grad():
         print(real - output)
         
     if test_addition:
+        addition_function = Addition(full_precision_flag=False,
+                                     integer_only=True)
         x = torch.randn([1, 2, 4, 4])
         y = torch.randn([1, 2, 4, 4])
         real = x + y
