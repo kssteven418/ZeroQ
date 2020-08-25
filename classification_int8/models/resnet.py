@@ -103,6 +103,7 @@ class ResBottleneck(nn.Module):
             out_channels=out_channels,
             activation=None)
 
+
     def forward(self, x):
         x = self.conv1(x)
         x = self.conv2(x)

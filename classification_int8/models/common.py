@@ -234,8 +234,12 @@ class ConvBlock(nn.Module):
                  bias=False,
                  use_bn=True,
                  bn_eps=1e-5,
-                 activation=(lambda: nn.ReLU(inplace=True))):
+                 activation=(lambda: nn.ReLU(inplace=True)),
+                 full_precision_flag=True,
+                 integer_only=True):
         super(ConvBlock, self).__init__()
+        self.full_precision_flag = full_precision_flag
+        self.integer_only = integer_only
         self.activate = (activation is not None)
         self.use_bn = use_bn
 
@@ -272,7 +276,9 @@ def conv1x1_block(in_channels,
                   bias=False,
                   use_bn=True,
                   bn_eps=1e-5,
-                  activation=(lambda: nn.ReLU(inplace=True))):
+                  activation=(lambda: nn.ReLU(inplace=True)),
+                  full_precision_flag=True,
+                  integer_only=True):
     """
     1x1 version of the standard convolution block.
 
@@ -307,7 +313,9 @@ def conv1x1_block(in_channels,
         bias=bias,
         use_bn=use_bn,
         bn_eps=bn_eps,
-        activation=activation)
+        activation=activation,
+        full_precision_flag=full_precision_flag,
+        integer_only=integer_only)
 
 
 def conv3x3_block(in_channels,
@@ -319,7 +327,9 @@ def conv3x3_block(in_channels,
                   bias=False,
                   use_bn=True,
                   bn_eps=1e-5,
-                  activation=(lambda: nn.ReLU(inplace=True))):
+                  activation=(lambda: nn.ReLU(inplace=True)),
+                  full_precision_flag=True,
+                  integer_only=True):
     """
     3x3 version of the standard convolution block.
 
@@ -357,7 +367,9 @@ def conv3x3_block(in_channels,
         bias=bias,
         use_bn=use_bn,
         bn_eps=bn_eps,
-        activation=activation)
+        activation=activation,
+        full_precision_flag=full_precision_flag,
+        integer_only=integer_only)
 
 
 def conv5x5_block(in_channels,
@@ -368,7 +380,9 @@ def conv5x5_block(in_channels,
                   groups=1,
                   bias=False,
                   bn_eps=1e-5,
-                  activation=(lambda: nn.ReLU(inplace=True))):
+                  activation=(lambda: nn.ReLU(inplace=True)),
+                  full_precision_flag=True,
+                  integer_only=True):
     """
     5x5 version of the standard convolution block.
 
@@ -403,7 +417,9 @@ def conv5x5_block(in_channels,
         groups=groups,
         bias=bias,
         bn_eps=bn_eps,
-        activation=activation)
+        activation=activation,
+        full_precision_flag=full_precision_flag,
+        integer_only=integer_only)
 
 
 def conv7x7_block(in_channels,
@@ -412,7 +428,9 @@ def conv7x7_block(in_channels,
                   padding=3,
                   bias=False,
                   use_bn=True,
-                  activation=(lambda: nn.ReLU(inplace=True))):
+                  activation=(lambda: nn.ReLU(inplace=True)),
+                  full_precision_flag=True,
+                  integer_only=True):
     """
     7x7 version of the standard convolution block.
 
@@ -441,7 +459,9 @@ def conv7x7_block(in_channels,
         padding=padding,
         bias=bias,
         use_bn=use_bn,
-        activation=activation)
+        activation=activation,
+        full_precision_flag=full_precision_flag,
+        integer_only=integer_only)
 
 
 def dwconv_block(in_channels,
