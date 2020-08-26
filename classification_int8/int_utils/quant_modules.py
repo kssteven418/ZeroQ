@@ -29,20 +29,39 @@ class Quant_Module(nn.Module):
                  self.weight_bit, self.bias_bit, self.full_precision_flag, self.integer_only)
         return s
 
-class Quant_MaxPool2d(nn.Module):
+class Quant_Pool2d(nn.Module):
     def __init__(self, full_precision_flag=False):
-        super(Quant_MaxPool2d, self).__init__()
+        super(Quant_Pool2d, self).__init__()
         self.full_precision_flag = full_precision_flag
 
+    def __repr__(self):
+        return "{0}(name: {1}})".format(
+                self.__class__.__name__, self.name)
+
     def set_params(self, pool):
-        self.args = {
-            'kernel_size': pool.kernel_size,
-            'padding': pool.padding,
-            'stride': pool.stride,
-            'dilation': pool.dilation,
-            'return_indices': pool.return_indices,
-            'ceil_mode': pool.ceil_mode
-            }
+        if isinstance(pool, nn.MaxPool2d):
+            self.name = 'MaxPool2d'
+            self.args = {
+                'kernel_size': pool.kernel_size,
+                'padding': pool.padding,
+                'stride': pool.stride,
+                'dilation': pool.dilation,
+                'return_indices': pool.return_indices,
+                'ceil_mode': pool.ceil_mode
+                }
+        elif ininstance(pool, nn.AvgPool2d):
+            self.name = 'AvgPool2d'
+            self.args = {
+                'kernel_size': pool.kernel_size,
+                'padding': pool.padding,
+                'stride': pool.stride,
+                'ceil_mode': pool.ceil_mode,
+                'count_include_pad': pool.count_include_pad,
+                'divisor_override': pool.divisor_override
+                }
+        else:
+            raise NotImplementedError('Pool only support MaxPool2d and AvgPool2d')
+
 
     def forward(self, x):
         if self.full_precision_flag:
@@ -163,9 +182,10 @@ class Quant_Conv2d(Quant_Module):
     def batchnorm_folding(self, mean, var, weight, bias):
         mean, var, weight, bias = mean.data, var.data, weight.data, bias.data
         if self.bias is None:
-            self.bias = Parameter(torch.zeros([self.out_channels]))
-        bias_data = self.bias.data.clone()
+            self.bias = Parameter(\
+                    torch.zeros([self.out_channels])).to(self.weight.device)
         weight_data = self.weight.data.clone()
+        bias_data = self.bias.data.clone()
 
         bias_data = bias_data + bias - \
                     mean * weight / torch.sqrt(1e-8 + var)

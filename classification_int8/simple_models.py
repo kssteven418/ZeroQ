@@ -9,7 +9,7 @@ from int_utils import *
 
 test_linear, test_conv = False, False
 test_relu = False
-test_pool = False
+test_pool = True
 test_addition = False
 test_bn_folding = False
 test_e2e = True
@@ -181,7 +181,7 @@ with torch.no_grad():
         pool = nn.MaxPool2d(kernel_size=2)
         real = pool(x_float)
 
-        qpool = Quant_MaxPool2d()
+        qpool = Quant_Pool2d()
         qpool.set_params(pool)
 
         qpool.full_precision_flag = True

@@ -205,7 +205,7 @@ class ResInitBlock(nn.Module):
             in_channels=in_channels,
             out_channels=out_channels,
             stride=2)
-        self.pool = Quant_MaxPool2d(
+        self.pool = Quant_Pool2d(
                 full_precision_flag=full_precision_flag)
         pool = nn.MaxPool2d(
             kernel_size=3,
