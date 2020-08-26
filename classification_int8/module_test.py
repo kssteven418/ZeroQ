@@ -16,14 +16,15 @@ input_quant_function = SymmetricQuantFunction.apply
 
 def test_quantize(layer, shape):
 
-    for i in range(10):
-        input = torch.randn(shape)
+    for i in range(1):
+        input = torch.randn(shape) * 100
         layer(input)
 
     freeze(layer)
     layer.eval()
 
-    input = torch.randn(shape)
+    print('============== REAL ==================')
+    input = torch.randn(shape) * 100
     input_q, scale_input = input_quant_function(input, 8)
 
     real = layer(input)

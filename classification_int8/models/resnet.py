@@ -14,6 +14,15 @@ import torch.nn.init as init
 from .common import conv1x1_block, conv3x3_block, conv7x7_block
 from int_utils import *
 
+def print_x(x, flag):
+    if flag:
+        print(x[0][0])
+    else:
+        x, scale = x
+        xx = x.type(torch.float32) / scale
+        print(xx[0][0])
+
+
 
 class ResBlock(nn.Module):
     """
@@ -141,10 +150,13 @@ class ResUnit(nn.Module):
                  bottleneck=True,
                  conv1_stride=False,
                  full_precision_flag=True,
-                 integer_only=True):
+                 integer_only=True,
+                 name='debugging'):
         super(ResUnit, self).__init__()
         self.full_precision_flag = full_precision_flag
         self.integer_only = integer_only
+        self.name = name
+
         self.resize_identity = (in_channels != out_channels) or (stride != 1)
         self.full_precision_flag = full_precision_flag
         self.integer_only = integer_only
@@ -174,13 +186,26 @@ class ResUnit(nn.Module):
                                  integer_only=self.integer_only)
 
     def forward(self, x):
+        print()
+        print('NAME:', self.name)
+        print('ResUnit in')
+        print_x(x, self.full_precision_flag)
         if self.resize_identity:
             identity = self.identity_conv(x)
         else:
             identity = x
         x = self.body(x)
+        print()
+        print('ResUnit after body')
+        print_x(x, self.full_precision_flag)
         x = self.addition(x, identity)
+        print()
+        print('ResUnit after addition')
+        print_x(x, self.full_precision_flag)
         x = self.activ(x)
+        print()
+        print('ResUnit out')
+        print_x(x, self.full_precision_flag)
         return x
 
 
@@ -201,6 +226,9 @@ class ResInitBlock(nn.Module):
                  full_precision_flag=True,
                  integer_only=True):
         super(ResInitBlock, self).__init__()
+        self.full_precision_flag = full_precision_flag
+        self.integer_only = integer_only
+
         self.conv = conv7x7_block(
             in_channels=in_channels,
             out_channels=out_channels,
@@ -215,8 +243,14 @@ class ResInitBlock(nn.Module):
 
 
     def forward(self, x):
+        if not self.full_precision_flag:
+            print(x[0].shape)
+        else:
+            print(x.shape)
+        print_x(x, self.full_precision_flag)
         x = self.conv(x)
         x = self.pool(x)
+        print_x(x, self.full_precision_flag)
         return x
 
 
@@ -260,7 +294,9 @@ class ResNet(nn.Module):
         self.features = nn.Sequential()
         self.features.add_module("init_block", ResInitBlock(
             in_channels=in_channels,
-            out_channels=init_block_channels))
+            out_channels=init_block_channels,
+                    full_precision_flag=full_precision_flag,
+                    integer_only=integer_only))
         in_channels = init_block_channels
         for i, channels_per_stage in enumerate(channels):
             stage = nn.Sequential()
@@ -271,7 +307,10 @@ class ResNet(nn.Module):
                     out_channels=out_channels,
                     stride=stride,
                     bottleneck=bottleneck,
-                    conv1_stride=conv1_stride))
+                    conv1_stride=conv1_stride,
+                    full_precision_flag=full_precision_flag,
+                    integer_only=integer_only,
+                    name='UNIT_{}_{}'.format(i + 1, j + 1)))
                 in_channels = out_channels
             self.features.add_module("stage{}".format(i + 1), stage)
         avg_pool = Quant_Pool2d(
@@ -298,6 +337,9 @@ class ResNet(nn.Module):
                     init.constant_(module.bias, 0)
 
     def forward(self, x):
+        print()
+        print_x(x, self.full_precision_flag)
+        print()
         x = self.features(x)
         if not self.full_precision_flag:
             x, scale = x
