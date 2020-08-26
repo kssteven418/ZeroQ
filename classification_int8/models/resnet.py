@@ -274,13 +274,19 @@ class ResNet(nn.Module):
                     conv1_stride=conv1_stride))
                 in_channels = out_channels
             self.features.add_module("stage{}".format(i + 1), stage)
-        self.features.add_module("final_pool", nn.AvgPool2d(
-            kernel_size=7,
-            stride=1))
+        avg_pool = Quant_Pool2d(
+                full_precision_flag=full_precision_flag)
+        avg_pool.set_params(
+                nn.AvgPool2d(kernel_size=7, stride=1))
+        self.features.add_module("final_pool", avg_pool)
 
-        self.output = nn.Linear(
+    
+        self.output = Quant_Linear(
+                full_precision_flag=full_precision_flag,
+                integer_only=integer_only)
+        self.output.set_params(nn.Linear(
             in_features=in_channels,
-            out_features=num_classes)
+            out_features=num_classes))
 
         self._init_params()
 
@@ -293,7 +299,12 @@ class ResNet(nn.Module):
 
     def forward(self, x):
         x = self.features(x)
-        x = x.view(x.size(0), -1)
+        if not self.full_precision_flag:
+            x, scale = x
+            x = x.view(x.size(0), -1)
+            x = (x, scale)
+        else:
+            x = x.view(x.size(0), -1)
         x = self.output(x)
         return x
 

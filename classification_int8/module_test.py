@@ -10,13 +10,13 @@ import models.resnet as resnet
 import models.resnet_original as resnet_base
 
 test_block = False
-test_unit = True
-test_model = False
+test_unit = False
+test_model = True
 input_quant_function = SymmetricQuantFunction.apply
 
 def test_quantize(layer, shape):
 
-    for i in range(1):
+    for i in range(10):
         input = torch.randn(shape)
         layer(input)
 

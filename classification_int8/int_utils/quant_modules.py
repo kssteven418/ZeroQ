@@ -35,7 +35,7 @@ class Quant_Pool2d(nn.Module):
         self.full_precision_flag = full_precision_flag
 
     def __repr__(self):
-        return "{0}(name: {1}})".format(
+        return "{0}(name: {1})".format(
                 self.__class__.__name__, self.name)
 
     def set_params(self, pool):
@@ -49,7 +49,9 @@ class Quant_Pool2d(nn.Module):
                 'return_indices': pool.return_indices,
                 'ceil_mode': pool.ceil_mode
                 }
-        elif ininstance(pool, nn.AvgPool2d):
+            self.pool = F.max_pool2d
+
+        elif isinstance(pool, nn.AvgPool2d):
             self.name = 'AvgPool2d'
             self.args = {
                 'kernel_size': pool.kernel_size,
@@ -59,20 +61,21 @@ class Quant_Pool2d(nn.Module):
                 'count_include_pad': pool.count_include_pad,
                 'divisor_override': pool.divisor_override
                 }
+            self.pool = F.avg_pool2d
         else:
             raise NotImplementedError('Pool only support MaxPool2d and AvgPool2d')
 
 
     def forward(self, x):
         if self.full_precision_flag:
-            return F.max_pool2d(x, **self.args)
+            return self.pool(x, **self.args)
 
         assert isinstance(x, tuple)
         x, scale = x
         # For now, simply typecast x into float32, as integer pooling is not supported
         dtype = x.dtype
         x = x.type(torch.float32)
-        x = F.max_pool2d(x, **self.args)
+        x = self.pool(x, **self.args)
         x = x.type(dtype)
         return x, scale
 
