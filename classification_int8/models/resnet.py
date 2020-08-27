@@ -49,11 +49,15 @@ class ResBlock(nn.Module):
         self.conv1 = conv3x3_block(
             in_channels=in_channels,
             out_channels=out_channels,
-            stride=stride)
+            stride=stride,
+            full_precision_flag=full_precision_flag,
+            integer_only=integer_only)
         self.conv2 = conv3x3_block(
             in_channels=out_channels,
             out_channels=out_channels,
-            activation=None)
+            activation=None,
+            full_precision_flag=full_precision_flag,
+            integer_only=integer_only)
 
     def forward(self, x):
         x = self.conv1(x)
@@ -100,17 +104,23 @@ class ResBottleneck(nn.Module):
         self.conv1 = conv1x1_block(
             in_channels=in_channels,
             out_channels=mid_channels,
-            stride=(stride if conv1_stride else 1))
+            stride=(stride if conv1_stride else 1),
+            full_precision_flag=full_precision_flag,
+            integer_only=integer_only)
         self.conv2 = conv3x3_block(
             in_channels=mid_channels,
             out_channels=mid_channels,
             stride=(1 if conv1_stride else stride),
             padding=padding,
-            dilation=dilation)
+            dilation=dilation,
+            full_precision_flag=full_precision_flag,
+            integer_only=integer_only)
         self.conv3 = conv1x1_block(
             in_channels=mid_channels,
             out_channels=out_channels,
-            activation=None)
+            activation=None,
+            full_precision_flag=full_precision_flag,
+            integer_only=integer_only)
 
 
     def forward(self, x):
@@ -168,22 +178,28 @@ class ResUnit(nn.Module):
                 stride=stride,
                 padding=padding,
                 dilation=dilation,
-                conv1_stride=conv1_stride)
+                conv1_stride=conv1_stride,
+                full_precision_flag=full_precision_flag,
+                integer_only=integer_only)
         else:
             self.body = ResBlock(
                 in_channels=in_channels,
                 out_channels=out_channels,
-                stride=stride)
+                stride=stride,
+                full_precision_flag=full_precision_flag,
+                integer_only=integer_only)
         if self.resize_identity:
             self.identity_conv = conv1x1_block(
                 in_channels=in_channels,
                 out_channels=out_channels,
                 stride=stride,
-                activation=None)
+                activation=None,
+                full_precision_flag=full_precision_flag,
+                integer_only=integer_only)
         self.activ = Quant_Relu(integer_only=integer_only,
                     full_precision_flag=full_precision_flag)
-        self.addition = Addition(full_precision_flag=self.full_precision_flag,
-                                 integer_only=self.integer_only)
+        self.addition = Addition(full_precision_flag=full_precision_flag,
+                                 integer_only=integer_only)
 
     def forward(self, x):
         '''
@@ -240,14 +256,14 @@ class ResInitBlock(nn.Module):
         self.conv = conv7x7_block(
             in_channels=in_channels,
             out_channels=out_channels,
-            stride=2)
+            stride=2,
+            full_precision_flag=full_precision_flag,
+            integer_only=integer_only)
         self.pool = Quant_Pool2d(
                 full_precision_flag=full_precision_flag)
-        pool = nn.MaxPool2d(
-            kernel_size=3,
-            stride=2,
-            padding=1)
-        self.pool.set_params(pool)
+        self.pool.set_params(nn.MaxPool2d(kernel_size=3,
+                                          stride=2,
+                                          padding=1))
 
 
     def forward(self, x):
