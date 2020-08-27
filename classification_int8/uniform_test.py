@@ -69,6 +69,10 @@ def arg_parse():
                         default=False,
                         action='store_true',
                         help='run as a normal mode')
+    parser.add_argument('--qdq',
+                        default=False,
+                        action='store_true',
+                        help='run as a normal mode')
     parser.add_argument('--quantize',
                         default=False,
                         action='store_true',
@@ -128,12 +132,15 @@ def test_quantize(model, test_loader):
                     warmup = False
                     freeze(model)
                     if args.quantize:
-                        quantize_model(model)
-                        model = model.cpu()
+                        if args.qdq:
+                            quantize_model(model, integer_only=False)
+                        else:
+                            quantize_model(model, integer_only=True)
+                            model = model.cpu()
                     print('warmup done')
             else:
                 # After warm-up
-                if not args.quantize:
+                if not args.quantize or args.qdq:
                     if torch.cuda.is_available():
                         inputs, targets = inputs.cuda(), targets.cuda()
 
@@ -144,7 +151,6 @@ def test_quantize(model, test_loader):
                     correct += predicted.eq(targets).sum().item()
                     acc = correct / total
                     #print('Real:', acc, correct, total)
-
                 
                 else:
                     # quantized prediction

@@ -221,8 +221,9 @@ class AsymmetricZeroPointQuantFunction(Function):
             qrange = torch.max(torch.abs(x_min), torch.abs(x_max))
             scale = linear_quantization_params(k, qrange, is_symmetric=False)
 
+        zeros = torch.zeros(qrange.shape).to(qrange.device)
         qtensor, scale = linear_quantize(
-                clamp_per_feature(x, torch.zeros(qrange.shape), qrange), scale, qtype)
+                clamp_per_feature(x, zeros, qrange), scale, qtype)
 
         if not integer_only:
             dqtensor = linear_dequantize(qtensor, scale)

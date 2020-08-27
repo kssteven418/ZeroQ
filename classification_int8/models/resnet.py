@@ -373,7 +373,7 @@ class ResNet(nn.Module):
         print()
         '''
         x = self.features(x)
-        if not self.full_precision_flag:
+        if not self.full_precision_flag and self.integer_only:
             x, scale = x
             x = x.view(x.size(0), -1)
             x = (x, scale)
