@@ -32,6 +32,7 @@ import models.resnet as resnet
 import models.resnet_original as resnet_base
 
 input_quant_function = SymmetricQuantFunction.apply
+from progress.bar import Bar
 
 # model settings
 def arg_parse():
@@ -68,6 +69,10 @@ def arg_parse():
                         default=False,
                         action='store_true',
                         help='run as a normal mode')
+    parser.add_argument('--quantize',
+                        default=False,
+                        action='store_true',
+                        help='run as a normal mode')
     args = parser.parse_args()
     return args
 
@@ -97,58 +102,68 @@ def test(model, test_loader):
     return acc
 
 def test_quantize(model, test_loader):
+    bar = Bar('Testing', max=len(test_loader))
     total, correct = 0, 0
     warmup_duration = 30
     warmup = True
     model.eval()
     with torch.no_grad():
         for batch_idx, (inputs, targets) in enumerate(test_loader):
-            if torch.cuda.is_available():
-                inputs, targets = inputs.cuda(), targets.cuda()
-            print('batch id:', batch_idx)
             if warmup:
+                if torch.cuda.is_available():
+                    inputs, targets = inputs.cuda(), targets.cuda()
                 model(inputs)
                 outputs = model(inputs)
                 _, predicted = outputs.max(1)
+                '''
                 total += targets.size(0)
                 correct += predicted.eq(targets).sum().item()
                 acc = correct / total
                 print('batch id:', acc, correct, total)
+                '''
 
+                # finish warm-up
                 if batch_idx == warmup_duration:
+                    print('finishing up warmup')
                     warmup = False
+                    freeze(model)
+                    if args.quantize:
+                        quantize_model(model)
+                        model = model.cpu()
+                    print('warmup done')
             else:
-                print('-----------Quantize-----------')
-                freeze(model)
+                # After warm-up
+                if not args.quantize:
+                    if torch.cuda.is_available():
+                        inputs, targets = inputs.cuda(), targets.cuda()
 
-                # real prediction
-                real = model(inputs)
-                _, predicted = real.max(1)
-                total = targets.size(0)
-                correct = predicted.eq(targets).sum().item()
-                acc = correct / total
-                print('Real:', acc, correct, total)
+                    # real prediction
+                    real = model(inputs)
+                    _, predicted = real.max(1)
+                    total += targets.size(0)
+                    correct += predicted.eq(targets).sum().item()
+                    acc = correct / total
+                    #print('Real:', acc, correct, total)
 
-                quantize_model(model)
                 
-                # back to cpu
-                inputs, targets = inputs.cpu(), targets.cpu()
-                model = model.cpu()
-                
-                # quantized prediction
-                input_q, scale_input = input_quant_function(inputs, 8)
-                print('quantize input')
-                print(input_q.is_cuda, scale_input.is_cuda)
-                q, scale_q = model((input_q, scale_input))
-                output = q.type(torch.float32) / scale_q
-                _, predicted = output.max(1)
-                total = targets.size(0)
-                correct = predicted.eq(targets).sum().item()
-                acc = correct / total
-                print('Quantized:', acc, correct, total)
+                else:
+                    # quantized prediction
+                    input_q, scale_input = input_quant_function(inputs, 8)
+                    q, scale_q = model((input_q, scale_input))
+                    output = q.type(torch.float32) / scale_q
+                    _, predicted = output.max(1)
+                    total += targets.size(0)
+                    correct += predicted.eq(targets).sum().item()
+                    acc = correct / total
+                    #print('Quantized:', acc, correct, total)
 
-                break
+                bar.suffix = f'({batch_idx + 1}/{len(test_loader)}) | ETA: {bar.eta_td} | top1: {acc}'
+                bar.next()
 
+    print('\nFinal acc: %.2f%% (%d/%d)' % (100. * acc, correct, total))
+    bar.finish()
+    model.train()
+    return acc
 
 if __name__ == '__main__':
 
