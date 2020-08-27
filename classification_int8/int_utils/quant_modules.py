@@ -172,7 +172,8 @@ class Quant_Conv2d(Quant_Module):
         try:
             self.bias = Parameter(conv.bias.data.clone())
         except AttributeError:
-            self.bias = None
+            self.bias = Parameter(\
+                    torch.zeros([self.out_channels]))
 
     def set_subsequent_bn(self, bn):
         self.subsequent_bn = bn
@@ -184,9 +185,6 @@ class Quant_Conv2d(Quant_Module):
 
     def batchnorm_folding(self, mean, var, weight, bias):
         mean, var, weight, bias = mean.data, var.data, weight.data, bias.data
-        if self.bias is None:
-            self.bias = Parameter(\
-                    torch.zeros([self.out_channels])).to(self.weight.device)
         weight_data = self.weight.data.clone()
         bias_data = self.bias.data.clone()
 
