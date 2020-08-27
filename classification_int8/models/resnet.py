@@ -260,7 +260,8 @@ class ResInitBlock(nn.Module):
             full_precision_flag=full_precision_flag,
             integer_only=integer_only)
         self.pool = Quant_Pool2d(
-                full_precision_flag=full_precision_flag)
+                full_precision_flag=full_precision_flag,
+                integer_only=integer_only)
         self.pool.set_params(nn.MaxPool2d(kernel_size=3,
                                           stride=2,
                                           padding=1))
@@ -342,7 +343,8 @@ class ResNet(nn.Module):
                 in_channels = out_channels
             self.features.add_module("stage{}".format(i + 1), stage)
         avg_pool = Quant_Pool2d(
-                full_precision_flag=full_precision_flag)
+                full_precision_flag=full_precision_flag,
+                integer_only=integer_only)
         avg_pool.set_params(
                 nn.AvgPool2d(kernel_size=7, stride=1))
         self.features.add_module("final_pool", avg_pool)

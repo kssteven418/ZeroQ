@@ -8,11 +8,11 @@ from pytorchcv.model_provider import get_model as ptcv_get_model
 from int_utils import *
 
 test_linear, test_conv = False, False
-test_relu = False
-test_pool = True
+test_relu = True
+test_pool = False
 test_addition = False
 test_bn_folding = False
-test_e2e = True
+test_e2e = False
 input_quant_function = SymmetricQuantFunction.apply
 
 
@@ -99,17 +99,21 @@ with torch.no_grad():
         print('=========== Quant_Relu Test ==============\n')
         print('=========== Simple Example ===============\n')
         qact = Quant_Relu(8, full_precision_flag=True)
+        qact_dq = Quant_Relu(8, full_precision_flag=True, integer_only=False)
 
         # full precision and unfixed
         for i in range(10):
             input = torch.randn([2, 4])
             qact(input)
+            qact_dq(input)
 
         qact.fix()
+        qact_dq.fix()
         qact.full_precision_flag = False
+        qact_dq.full_precision_flag = False
 
-        print(qact.x_max)
-        print(qact.scale_out)
+        print('relu x_max:', qact.x_max)
+        print('relu scale_out:', qact.scale_out)
 
         input = torch.randn([2, 4])
         real = F.relu(input)
@@ -128,6 +132,11 @@ with torch.no_grad():
         print(output)
         print()
 
+        input_dq = input_quant_function(input, 8, None, None, None, False)
+        output_dq = qact_dq(input_dq)
+        print('output_dq')
+        print(output_dq)
+        print()
 
         print('=========== COmplex Example ===============\n')
         model_name = 'resnet18'

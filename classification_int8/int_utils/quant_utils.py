@@ -27,12 +27,18 @@ def clamp_per_feature(input, min, max):
 
 
 def linear_quantize(input, scale, qtype=torch.int8):
-    if qtype == torch.int8:
+    if qtype in [torch.int8, torch.uint8]:
         k = 8
-    if qtype == torch.int32:
+    if qtype in [torch.int32]:
         k = 32
-    n = 2 ** (k-1)
-    min, max = -n, n-1
+
+    if qtype in [torch.int8, torch.int32]:
+        n = 2 ** (k-1)
+        min, max = -n, n-1
+    if qtype in [torch.uint8]:
+        n = 2 ** k
+        min, max = 0, n-1
+
     scale_reshape = adjust_shape(scale, input) 
     qtensor = torch.round(scale_reshape * input).clamp(min, max).type(qtype)
     return qtensor, scale
@@ -160,7 +166,7 @@ class SymmetricQuantFunction(Function):
         elif k == 32:
             qtype = torch.int32
         else:
-            raise NotImplementedError("only 8-bit and 32-bit quantizations are supported")
+            raise NotImplementedError("only 8 and 32-bit symmetric quantizations are supported")
 
         # This path is for quantizing bias w.r.t the given scaling factor
         if scale is not None:
@@ -180,31 +186,52 @@ class SymmetricQuantFunction(Function):
         else:
             dqtensor = linear_dequantize(qtensor, scale)
             assert dqtensor.dtype == torch.float32
-            return dqtensor
+            return torch.autograd.Variable(dqtensor)
 
     @staticmethod
     def backward(ctx, grad_output):
         raise NotImplementedError
         
 
-if __name__ == '__main__':
+class AsymmetricZeroPointQuantFunction(Function):
+    """
+    Class to quantize the given floating-point values with given range and bit-setting.
+    Currently only support inference, but not support back-propagation.
+    """
+    @staticmethod
+    def forward(ctx, x, k, x_max=None, scale=None, 
+                integer_only=True, name=None):
+        """
+        x: single-precision value to be quantized
+        k: bit-setting for x
+        x_min: lower bound for quantization range
+        x_max=None
+        """
+        if k == 8:
+            qtype = torch.uint8
+        else:
+            raise NotImplementedError("only 8-bit asymmetric quantizations are supported")
 
-    # clamp per feature test
-    w = torch.Tensor([[-2, -1, 0, 1, 2], [-2, -1, 0, 1, 2], [-2, -1, 0, 1, 2]])
-    print(w)
-    min = torch.Tensor([-2, -1, 0])
-    max = torch.Tensor([0, 1, 2])
-    w_clamp = clamp_per_feature(w, min, max)
-    print(w_clamp)
+        if scale is not None:
+            qrange = (2**k - 1) / scale
+        else:
+            if x_max is None:
+                x_max = x.max()
+                x_min = torch.zeros(x_max.shape)
+            qrange = torch.max(torch.abs(x_min), torch.abs(x_max))
+            scale = linear_quantization_params(k, qrange, is_symmetric=False)
 
+        qtensor, scale = linear_quantize(
+                clamp_per_feature(x, torch.zeros(qrange.shape), qrange), scale, qtype)
 
-    # Test linear quantization and dequantization
-    qfunction = SymmetricQuantizationFunction.apply
-    x = torch.randn([4, 5])
-    qtensor, scale = qfunction(x, 8)
-    print(qtensor)
-    print(scale)
+        if not integer_only:
+            dqtensor = linear_dequantize(qtensor, scale)
+            assert dqtensor.dtype == torch.float32
+            return torch.autograd.Variable(dqtensor)
+        else:
+            # This path is assumed not taken
+            raise NotImplementedError
 
-    tensor = linear_dequantize(qtensor, scale)
-    print(tensor)
-    print(x)
+    @staticmethod
+    def backward(ctx, grad_output):
+        raise NotImplementedError

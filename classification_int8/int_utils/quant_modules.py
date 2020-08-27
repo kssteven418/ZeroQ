@@ -30,9 +30,10 @@ class Quant_Module(nn.Module):
         return s
 
 class Quant_Pool2d(nn.Module):
-    def __init__(self, full_precision_flag=False):
+    def __init__(self, full_precision_flag=False, integer_only=True):
         super(Quant_Pool2d, self).__init__()
         self.full_precision_flag = full_precision_flag
+        self.integer_only = integer_only
 
     def __repr__(self):
         return "{0}(name: {1})".format(
@@ -67,7 +68,7 @@ class Quant_Pool2d(nn.Module):
 
 
     def forward(self, x):
-        if self.full_precision_flag:
+        if self.full_precision_flag or not self.integer_only:
             return self.pool(x, **self.args)
 
         assert isinstance(x, tuple)
@@ -100,12 +101,13 @@ class Quant_Relu(nn.Module):
             self.qtype = torch.uint8
         else:
             raise NotImplementedError
+
         self.full_precision_flag = full_precision_flag
         self.integer_only = integer_only
         self.running_stat = running_stat
         self.register_buffer('x_max', torch.zeros(1))
-        #self.act_function = AsymmetricQuantFunction.apply
         self.register_buffer('scale_out', torch.zeros(1))
+        self.act_function = AsymmetricZeroPointQuantFunction.apply
 
     def __repr__(self):
         return "{0}(activation_bit={1}, full_precision_flag={2}, running_stat={3}, Act_max: {4:.2f})".format(
@@ -140,8 +142,10 @@ class Quant_Relu(nn.Module):
             return F.relu(x)
 
         if not self.integer_only:
-            raise NotImplementedError
-
+            x = F.relu(x)
+            x_q = self.act_function(x, self.activation_bit, None,
+                    self.scale_out, self.integer_only, 'Relu')
+            return x_q
         else:
             assert isinstance(x, tuple)
             x, scale = x
