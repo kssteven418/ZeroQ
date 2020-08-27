@@ -105,7 +105,7 @@ class Quant_Relu(nn.Module):
         self.running_stat = running_stat
         self.register_buffer('x_max', torch.zeros(1))
         #self.act_function = AsymmetricQuantFunction.apply
-        self.scale_out = None
+        self.register_buffer('scale_out', torch.zeros(1))
 
     def __repr__(self):
         return "{0}(activation_bit={1}, full_precision_flag={2}, running_stat={3}, Act_max: {4:.2f})".format(
