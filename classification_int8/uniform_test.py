@@ -31,6 +31,8 @@ from int_utils import *
 import models.resnet as resnet
 import models.resnet_original as resnet_base
 
+input_quant_function = SymmetricQuantFunction.apply
+
 # model settings
 def arg_parse():
     parser = argparse.ArgumentParser(
@@ -116,6 +118,35 @@ def test_quantize(model, test_loader):
                 if batch_idx == warmup_duration:
                     warmup = False
             else:
+                print('-----------Quantize-----------')
+                freeze(model)
+
+                # real prediction
+                real = model(inputs)
+                _, predicted = real.max(1)
+                total = targets.size(0)
+                correct = predicted.eq(targets).sum().item()
+                acc = correct / total
+                print('Real:', acc, correct, total)
+
+                quantize_model(model)
+                
+                # back to cpu
+                inputs, targets = inputs.cpu(), targets.cpu()
+                model = model.cpu()
+                
+                # quantized prediction
+                input_q, scale_input = input_quant_function(inputs, 8)
+                print('quantize input')
+                print(input_q.is_cuda, scale_input.is_cuda)
+                q, scale_q = model((input_q, scale_input))
+                output = q.type(torch.float32) / scale_q
+                _, predicted = output.max(1)
+                total = targets.size(0)
+                correct = predicted.eq(targets).sum().item()
+                acc = correct / total
+                print('Quantized:', acc, correct, total)
+
                 break
 
 

@@ -186,26 +186,34 @@ class ResUnit(nn.Module):
                                  integer_only=self.integer_only)
 
     def forward(self, x):
+        '''
         print()
         print('NAME:', self.name)
         print('ResUnit in')
         print_x(x, self.full_precision_flag)
+        '''
         if self.resize_identity:
             identity = self.identity_conv(x)
         else:
             identity = x
         x = self.body(x)
+        '''
         print()
         print('ResUnit after body')
         print_x(x, self.full_precision_flag)
+        '''
         x = self.addition(x, identity)
+        '''
         print()
         print('ResUnit after addition')
         print_x(x, self.full_precision_flag)
+        '''
         x = self.activ(x)
+        '''
         print()
         print('ResUnit out')
         print_x(x, self.full_precision_flag)
+        '''
         return x
 
 
@@ -243,14 +251,18 @@ class ResInitBlock(nn.Module):
 
 
     def forward(self, x):
+        '''
         if not self.full_precision_flag:
             print(x[0].shape)
         else:
             print(x.shape)
         print_x(x, self.full_precision_flag)
+        '''
         x = self.conv(x)
         x = self.pool(x)
+        '''
         print_x(x, self.full_precision_flag)
+        '''
         return x
 
 
@@ -337,9 +349,11 @@ class ResNet(nn.Module):
                     init.constant_(module.bias, 0)
 
     def forward(self, x):
+        '''
         print()
         print_x(x, self.full_precision_flag)
         print()
+        '''
         x = self.features(x)
         if not self.full_precision_flag:
             x, scale = x

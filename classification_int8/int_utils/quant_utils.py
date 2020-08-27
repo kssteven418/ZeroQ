@@ -93,12 +93,14 @@ def downcast_function(x, scale, output_dtype=torch.int8):
     return output_cast, scale_cast * scale
 
 def requantization_function(x, scale, target_scale, shift=16):
+    '''
     print()
     print('scale')
     print(scale)
     print('target_scale')
     print(target_scale)
     print()
+    '''
     n = 2**shift
     multiplier = (target_scale / scale * n).type(x.dtype)
     #print('MULTIPLIER')
@@ -125,17 +127,21 @@ class Addition(nn.Module):
             x, scale_x = x
             y, scale_y = y
             y = y.type(x.dtype)
+            '''
             print()
             print('Addition y')
             print(y)
             print(y.dtype)
             print()
+            '''
             y_rescaled = requantization_function(y, scale_y, scale_x, shift=2)
+            '''
             print()
             print('Addition y_rescaled')
             print(y_rescaled)
             print(y_rescaled.dtype)
             print()
+            '''
             return x + y_rescaled, scale_x
 
 class SymmetricQuantFunction(Function):

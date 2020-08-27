@@ -116,7 +116,6 @@ class Quant_Relu(nn.Module):
         """
         fix the activation range by setting running stat
         """
-        print("Model fixed")
         self.running_stat = False
         n = 2**self.activation_bit - 1
         self.scale_out = n / (self.x_max * 1.)
